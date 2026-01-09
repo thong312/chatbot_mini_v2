@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat A.I+ - AI PDF RAG System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+
+        .new-chat-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .new-chat-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .conversations-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            margin: 15px 0 10px 0;
+        }
+
+        .conversation-item {
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 6px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            opacity: 0.8;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .conversation-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            opacity: 1;
+        }
+
+        .conversation-item.active {
+            background: rgba(255, 255, 255, 0.25);
+            opacity: 1;
+            font-weight: 600;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .settings-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            width: 100%;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border-radius: 6px;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            letter-spacing: 0.5px;
+        }
+
+        .upload-btn-container {
+            display: flex;
+            gap: 8px;
+        }
+
+        .upload-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #pdf-file {
+            display: none;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: #fafafa;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-user {
+            justify-content: flex-end;
+            align-self: flex-end;
+        }
+
+        .message-user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 4px 12px;
+        }
+
+        .message-ai {
+            justify-content: flex-start;
+            align-self: flex-start;
+        }
+
+        .message-ai .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px 12px 12px 4px;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            word-wrap: break-word;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 20px 24px;
+            background: white;
+            border-top: 1px solid #e5e5e5;
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: #f5f5f5;
+            border: 1px solid #e5e5e5;
+            border-radius: 24px;
+            padding: 12px 16px;
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper:focus-within {
+            background: white;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #user-input {
+            flex: 1;
+            border: none;
+            background: none;
+            outline: none;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        #user-input::placeholder {
+            color: #999;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Modal */
+        #preview-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 50;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        #preview-modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9f9f9;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            color: #e74c3c;
+        }
+
+        .modal-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .file-icon {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .file-details h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-details p {
+            font-size: 12px;
+            color: #999;
+        }
+
+        #pdf-preview {
+            border-radius: 8px;
+            border: 1px solid #e5e5e5;
+            width: 100%;
+            height: 300px;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e5e5e5;
+            background: #f9f9f9;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn-cancel {
+            background: white;
+            border: 1px solid #e5e5e5;
+            color: #333;
+        }
+
+        .modal-btn-cancel:hover {
+            background: #f5f5f5;
+        }
+
+        .modal-btn-confirm {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .modal-btn-confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d0d0d0;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: absolute;
+                left: -280px;
+                height: 100vh;
+                transition: left 0.3s ease;
+                z-index: 40;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .message {
+                max-width: 95%;
+            }
+
+            .input-area {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- <header class="bg-gray-600 text-white p-4 shadow-md flex justify-between items-center relative z-10">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            <span>📚</span> AI PDF RAG System
+        </h1>
+
+        <div class="flex items-center gap-2">
+            <input type="file" id="pdf-file" accept=".pdf" class="hidden" onchange="handleFileSelect(this)" />
+
+            <label for="pdf-file"
+                class="cursor-pointer bg-gray-500 hover:bg-gray-400 text-white border border-gray-400 px-4 py-2 rounded shadow transition flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Select PDF
+            </label>
+        </div>
+    </header>
+
+    <div id="preview-modal"
+        class="fixed inset-0 bg-black bg-opacity-60 hidden z-50 flex justify-center items-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-lg shadow-2xl w-11/12 md:w-3/4 lg:w-1/2 flex flex-col max-h-[90vh]">
+
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+                <h2 class="text-lg font-bold text-gray-700">📄 Review File Before Upload</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-red-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-4 flex-1 overflow-y-auto">
+                <div class="mb-4 flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded">
+                    <div class="bg-red-500 text-white p-2 rounded">PDF</div>
+                    <div>
+                        <p id="file-name" class="font-semibold text-gray-800 text-sm">filename.pdf</p>
+                        <p id="file-size" class="text-xs text-gray-500">0 MB</p>
+                    </div>
+                </div>
+
+                <div class="border rounded bg-gray-200 h-64 md:h-80 lg:h-96 relative">
+                    <iframe id="pdf-preview" src="" class="w-full h-full rounded" frameborder="0"></iframe>
+                    <div id="no-preview" class="hidden absolute inset-0 flex items-center justify-center text-gray-500">
+                        Preview not available for this file type
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end gap-3">
+                <button onclick="closeModal()"
+                    class="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-100 transition">
+                    Cancel
+                </button>
+                <button onclick="uploadPDF()"
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 shadow-lg flex items-center gap-2 transition">
+                    <span>🚀</span> Confirm & Ingest
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-1 container mx-auto p-4 flex flex-col">
+
+        <div id="chat-history" class="bg-white rounded-lg shadow-inner p-4 mb-4 flex flex-col gap-4">
+            <div class="message-ai p-3 rounded-lg max-w-3xl border border-gray-200">
+                <p>Xin chào! Hãy upload tài liệu PDF và đặt câu hỏi cho tôi.</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow-md flex gap-2">
+            <input type="text" id="user-input" placeholder="Hỏi gì đó về tài liệu..."
+                class="flex-1 border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()" id="send-btn"
+                class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded font-semibold transition">
+                Gửi
+            </button>
+        </div>
+    </main> -->
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">CHAT A.I+</div>
+            <button class="new-chat-btn" onclick="newChat()">
+                <span>+</span> New chat
+            </button>
+
+            <div class="conversations-title">Your conversations</div>
+            <div id="conversation-list">
+                <div class="conversation-item active">Create Chatbot with Python</div>
+                <div class="conversation-item">PDF Analysis Tips</div>
+                <div class="conversation-item">AI Implementation Guide</div>
+                <div class="conversation-item">Document Processing</div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="settings-btn" onclick="openSettings()">
+                    <span>⚙️</span> Settings
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h1 class="header-title">📚 AI PDF RAG System</h1>
+                <div class="upload-btn-container">
+                    <input type="file" id="pdf-file" accept=".pdf" onchange="handleFileSelect(this)" />
+                    <button class="upload-btn" onclick="document.getElementById('pdf-file').click()">
+                        <span>📤</span> Select PDF
+                    </button>
+                </div>
+            </header>
+
+            <!-- Chat Area -->
+            <div class="chat-area">
+                <div id="chat-history">
+                    <div class="message message-ai">
+                        <div class="message-content">
+                            👋 Xin chào! Hãy upload tài liệu PDF và đặt câu hỏi cho tôi.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <input type="text" id="user-input" placeholder="Hỏi gì đó về tài liệu..."
+                            onkeypress="handleEnter(event)" />
+                    </div>
+                    <button id="send-btn" class="send-btn" onclick="sendMessage()">
+                        <span>➤</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📄 Review File Before Upload</h2>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="file-info">
+                    <div class="file-icon">PDF</div>
+                    <div class="file-details">
+                        <h3 id="file-name">filename.pdf</h3>
+                        <p id="file-size">0 MB</p>
+                    </div>
+                </div>
+
+                <iframe id="pdf-preview" src=""></iframe>
+            </div>
+
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+                <button id="btn-confirm" class="modal-btn modal-btn-confirm" onclick="uploadPDF()">
+                    <span>🚀</span> Confirm & Ingest
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        const chatHistory = document.getElementById('chat-history');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        // Hàm xử lý khi nhấn Enter
+        function handleEnter(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Ngăn xuống dòng hoặc submit form ảo
+                sendMessage();
+            }
+        }
+
+        // 1. Hàm Upload PDF
+        // 1. Hàm Upload PDF (Đã sửa)
+        async function uploadPDF() {
+            // Sử dụng biến toàn cục selectedFile đã được gán ở hàm handleFileSelect
+            if (!selectedFile) return alert("Vui lòng chọn file PDF!");
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            // Lấy nút trong modal để hiển thị loading
+            // Lưu ý: Nút này nằm trong modal, hàm confirmUpload gọi uploadPDF
+            // Nếu bạn dùng nút trong header thì querySelector nút đó, nếu dùng nút trong modal thì querySelector nút modal
+            // const btn = document.querySelector("button[onclick='uploadPDF()']") || document.querySelector("#preview-modal button.bg-green-600");
+            const btn = document.getElementById("btn-confirm");
+
+            let originalText = "Upload";
+            if (btn) {
+                originalText = btn.innerText;
+                btn.innerText = "Processing...";
+                btn.disabled = true;
+            }
+
+            try {
+                const res = await fetch("/documents/ingest", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert(`✅ Thành công! Đã thêm ${data.chunks_inserted} đoạn văn vào dữ liệu.`);
+
+                    // Đóng modal thủ công (vì hàm closeModal sẽ xóa selectedFile)
+                    document.getElementById('preview-modal').classList.remove('show');
+                    document.getElementById('pdf-preview').src = '';
+                    // Giữ lại selectedFile = null ở lần chọn tới tự reset
+                } else {
+                    alert(`❌ Lỗi server: ${JSON.stringify(data)}`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Lỗi kết nối server!");
+            } finally {
+                if (btn) {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        // 2. Hàm Gửi Tin Nhắn
+        async function sendMessage() {
+            const question = userInput.value.trim();
+
+            // Nếu ô nhập trống thì không làm gì cả
+            if (!question) return;
+
+            console.log("User sending:", question); // Debug xem code có chạy tới đây không
+
+            // 1. Hiển thị ngay câu hỏi của User lên màn hình
+            appendMessage(question, 'user');
+
+            // 2. Xóa ô nhập liệu và khóa nút gửi
+            userInput.value = '';
+            sendBtn.disabled = true;
+
+            // 3. Hiển thị trạng thái "Thinking..."
+            const loadingId = appendMessage("Thinking...", 'ai', true);
+
+            try {
+                // Gọi API
+                const res = await fetch("/ask", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        question: question,
+                        topk: 50,
+                        rerank_topn: 5
+
+                    })
+                });
+
+                const data = await res.json();
+
+                // Xóa tin nhắn loading
+                const loadingDiv = document.getElementById(loadingId);
+                if (loadingDiv) loadingDiv.remove();
+
+                if (res.ok) {
+                    // Hiển thị câu trả lời AI + Context
+                    appendMessage(data.answer, 'ai', false, data.context);
+                } else {
+                    appendMessage("❌ Lỗi Server: " + JSON.stringify(data), 'ai');
+                    const errorData = await res.json();
+                    const loadingDiv = document.getElementById(loadingId);
+                    if (loadingDiv) loadingDiv.remove();
+
+                    console.error("Server Error Detail:", errorData); // Xem F12 để thấy chi tiết
+                    appendMessage(`⚠️ Lỗi Server (${res.status}): ${JSON.stringify(errorData.detail || errorData)}`, 'ai');
+                }
+
+            } catch (err) {
+                console.error("Chat Error:", err);
+                const loadingDiv = document.getElementById(loadingId);
+                if (loadingDiv) loadingDiv.remove();
+                appendMessage("❌ Lỗi kết nối: " + err.message, 'ai');
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        // Hàm vẽ tin nhắn lên màn hình
+        function appendMessage(text, role, isLoading = false, context = []) {
+            const div = document.createElement('div');
+            const id = 'msg-' + Date.now() + Math.random(); // ID ngẫu nhiên
+            div.id = id;
+
+            // Set class CSS dựa trên vai trò (user/ai)
+            if (role === 'user') {
+                div.className = 'message-user bg-gray-100 text-gray-900 p-3 rounded-lg max-w-3xl mb-2 self-end text-right ml-auto';
+            } else {
+                div.className = 'message-ai bg-gray-100 text-gray-800 p-3 rounded-lg max-w-3xl mb-2 self-start border border-gray-200 mr-auto';
+            }
+
+            // Xử lý nội dung text (xuống dòng)
+            // Nếu text null/undefined thì gán chuỗi rỗng để tránh lỗi
+            const safeText = text ? text.replace(/\n/g, '<br>') : "";
+            let htmlContent = `<p>${safeText}</p>`;
+
+            // Nếu có Context, vẽ thêm
+            if (context && context.length > 0) {
+                htmlContent += `
+                    <div class="mt-3 border-t border-gray-200 pt-3 text-left">
+                        <details class="group">
+                            <summary class="list-none cursor-pointer flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">
+                                <span class="transform group-open:rotate-90 transition-transform duration-200">▶</span>
+                                <span>📚 Nguồn tham khảo (${context.length} đoạn)</span>
+                            </summary>
+                            
+                            <div class="mt-3 grid gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                                ${context.map(ctx => `
+                                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all text-xs text-gray-700 relative group/item">
+                                        <div class="flex justify-between items-center mb-2 border-b border-gray-100 pb-2">
+                                            <span class="font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">#${ctx.chunk_id}</span>
+                                            <div class="flex gap-2 items-center">
+                                                <span class="text-[10px] uppercase tracking-wider text-gray-400 font-bold border border-gray-200 px-1 rounded">${ctx.level || 'Unknown'}</span>
+                                                <span class="${ctx.rerank_score > 2 ? 'text-green-600 bg-green-50' : 'text-orange-500 bg-orange-50'} font-mono font-bold px-1 rounded">
+                                                    ${ctx.rerank_score.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="relative">
+                                            <div class="line-clamp-3 group-hover/item:line-clamp-none transition-all duration-300 text-justify leading-relaxed opacity-80 group-hover/item:opacity-100">
+                                                ${ctx.text}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            }
+
+            if (isLoading) {
+                div.innerHTML = `<span class="animate-pulse">⏳ ${safeText}</span>`;
+            } else {
+                div.innerHTML = htmlContent;
+            }
+
+            // Thêm vào chat history và cuộn xuống cuối
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            return id;
+        }
+
+        let selectedFile = null;
+
+        // 1. Xử lý khi người dùng chọn file
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                selectedFile = input.files[0];
+
+                // Cập nhật thông tin file
+                document.getElementById('file-name').textContent = selectedFile.name;
+                document.getElementById('file-size').textContent = formatBytes(selectedFile.size);
+
+                // Tạo URL tạm thời để hiển thị preview PDF
+                const fileURL = URL.createObjectURL(selectedFile);
+                document.getElementById('pdf-preview').src = fileURL;
+
+                // Hiển thị Modal
+                document.getElementById('preview-modal').classList.add('show');
+            }
+        }
+
+        // 2. Đóng Modal và Reset
+        function closeModal() {
+            document.getElementById('preview-modal').classList.remove('show');
+            document.getElementById('pdf-file').value = ''; // Reset input
+            document.getElementById('pdf-preview').src = '';
+            selectedFile = null;
+        }
+
+
+        // Helper: Format dung lượng file cho đẹp
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        function newChat() {
+            document.getElementById('chat-history').innerHTML = `
+                <div class="message message-ai">
+                    <div class="message-content">
+                        👋 Xin chào! Hãy upload tài liệu PDF và đặt câu hỏi cho tôi.
+                    </div>
+                </div>
+            `;
+        }
+
+        function openSettings() {
+            alert('Settings functionality would go here');
+        }
+    </script>
+</body>
+
+</html>
