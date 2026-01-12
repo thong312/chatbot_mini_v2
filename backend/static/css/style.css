@@ -11,7 +11,7 @@ body {
     color: #333;
 }
 
-.container {
+.app-layout {
     display: flex;
     height: 100vh;
     width: 100%;
@@ -306,22 +306,25 @@ body {
     justify-content: center;
     align-items: center;
     backdrop-filter: blur(4px);
+    height: 100%;
 }
 
 #preview-modal.show {
     display: flex;
+    height: 100%;
 }
 
 .modal-content {
     background: white;
     border-radius: 12px;
-    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
-    width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* Reset lại size để Tailwind trong HTML được ưu tiên */
+    width: auto;
+    max-width: none;
+    max-height: none;
 }
 
 .modal-header {
@@ -356,6 +359,9 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    width: auto;
+    max-width: none;
+    max-height: none;
 }
 
 .file-info {
@@ -396,7 +402,8 @@ body {
     border-radius: 8px;
     border: 1px solid #e5e5e5;
     width: 100%;
-    height: 300px;
+    height: 100%;
+    
 }
 
 .modal-footer {
@@ -459,16 +466,20 @@ body {
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #d1d5db;
     border-radius: 10px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
 }
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {
