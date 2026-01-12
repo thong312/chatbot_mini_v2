@@ -14,6 +14,7 @@ body {
 .container {
     display: flex;
     height: 100vh;
+    width: 100%;
 }
 
 /* Sidebar */
@@ -439,7 +440,7 @@ body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar {
+/* ::-webkit-scrollbar {
     width: 8px;
 }
 
@@ -454,8 +455,20 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #999;
+} */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
 }
-
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {

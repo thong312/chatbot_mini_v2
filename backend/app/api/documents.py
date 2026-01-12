@@ -1,3 +1,4 @@
+from http.client import HTTPException
 from typing import List
 from fastapi import APIRouter, UploadFile, File
 from app.core.settings import settings
@@ -77,20 +78,23 @@ async def get_documents():
     """
     return list_files_in_minio()
 
-
-@router.get("/{filename}")
-async def view_document(filename: str):
+@router.get("/view/{filename}")
+def view_document(filename: str):
     """
-    API stream file PDF về trình duyệt để xem trước
+    Stream nội dung file PDF về trình duyệt để xem trước (Preview)
     """
     file_stream = get_file_stream(filename)
-    
-    if not file_stream:
-        return {"error": "File not found"}
 
-    # Trả về dạng stream để trình duyệt hiển thị luôn (inline)
+    if not file_stream:
+        raise HTTPException(status_code=404, detail="Không tìm thấy file trong MinIO")
+
+    # Trả về dạng StreamingResponse
+    # media_type="application/pdf": Báo cho trình duyệt biết đây là PDF
+    # content-disposition="inline": Báo trình duyệt MỞ FILE thay vì TẢI VỀ
     return StreamingResponse(
-        file_stream, 
+        content=file_stream,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename={filename}"}
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"'
+        }
     )

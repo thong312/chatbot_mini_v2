@@ -102,7 +102,7 @@ async function sendMessage() {
                 if (!line.trim()) continue;
                 try {
                     const json = JSON.parse(line);
-                    
+
                     // Xử lý: Câu trả lời (Answer)
                     if (json.type === "answer") {
                         // Chỉ khi nhận được chữ cái đầu tiên, ta mới xóa chữ "Thinking..."
@@ -113,7 +113,7 @@ async function sendMessage() {
                             }
                             isFirstToken = false;
                         }
-                        
+
                         // Cộng dồn chữ vào
                         if (aiMessageDiv) {
                             // Xử lý xuống dòng cho đẹp
@@ -122,16 +122,16 @@ async function sendMessage() {
                         }
                         // Tự động cuộn xuống cuối
                         chatHistory.scrollTop = chatHistory.scrollHeight;
-                    } 
-                    
+                    }
+
                     // Xử lý: Context (Nguồn)
                     else if (json.type === "context") {
                         console.log("Context received:", json.payload);
                         // Nếu muốn hiển thị nguồn ngay lập tức thì gọi hàm render ở đây
                         // (Hiện tại code appendMessage đã hỗ trợ render context nếu truyền vào lúc đầu,
                         //  nhưng vì streaming nên context đến trước, ta có thể lưu lại để render sau hoặc render ngay)
-                    } 
-                    
+                    }
+
                     // Xử lý: Lỗi
                     else if (json.type === "error") {
                         if (aiMessageDiv) {
@@ -148,7 +148,7 @@ async function sendMessage() {
 
         // Nếu kết thúc vòng lặp mà vẫn là FirstToken (tức là Server không trả về chữ nào cả)
         if (isFirstToken && aiMessageDiv) {
-             aiMessageDiv.innerHTML = "<span class='text-gray-500 italic'>(Server đã phản hồi nhưng không có nội dung)</span>";
+            aiMessageDiv.innerHTML = "<span class='text-gray-500 italic'>(Server đã phản hồi nhưng không có nội dung)</span>";
         }
 
     } catch (err) {
@@ -160,6 +160,46 @@ async function sendMessage() {
         sendBtn.disabled = false;
         userInput.focus();
     }
+}
+
+async function loadDocuments() {
+    try {
+        const res = await fetch("/documents");
+        const data = await res.json();
+
+        // Giả sử bạn có thẻ <div id="file-list"></div>
+        const listDiv = document.getElementById("file-list");
+        listDiv.innerHTML = ""; // Clear cũ
+
+        data.files.forEach(file => {
+            const item = document.createElement("div");
+            item.className = "file-item cursor-pointer p-2 hover:bg-gray-100 border-b";
+            item.innerText = `📄 ${file.filename} (${formatBytes(file.size)})`;
+
+            // Bắt sự kiện click để xem file
+            item.onclick = () => previewPDF(file.filename);
+
+            listDiv.appendChild(item);
+        });
+    } catch (err) {
+        console.error("Lỗi tải danh sách:", err);
+    }
+}
+function previewPDF(filename) {
+    // Gọi vào API view chúng ta vừa viết
+    // encodeURIComponent để xử lý tên file có dấu cách hoặc ký tự đặc biệt
+    const url = `/documents/view/${encodeURIComponent(filename)}`;
+
+    // Cách 1: Hiển thị trong thẻ Iframe (như cái Modal của bạn)
+    const iframe = document.getElementById("pdf-preview");
+    if (iframe) {
+        iframe.src = url;
+        // Mở modal lên nếu đang ẩn
+        document.getElementById('preview-modal').classList.add('show');
+    }
+
+    // Cách 2: Mở tab mới (nếu muốn)
+    // window.open(url, '_blank');
 }
 // Hàm vẽ tin nhắn (Có sử dụng class Tailwind)
 function appendMessage(text, role, isLoading = false, context = []) {
@@ -261,5 +301,132 @@ function newChat() {
 }
 
 function openSettings() {
-    alert('Settings functionality would go here');
+    alert('Settings functionality is not implemented yet.');
+}
+/* --- LOGIC QUẢN LÝ TÀI LIỆU (MỚI) --- */
+
+// 1. Mở Modal và tải danh sách
+async function openDocumentLibrary() {
+    const modal = document.getElementById('library-modal');
+    const listContainer = document.getElementById('document-list-container');
+
+    // Hiển thị modal
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    try {
+        const res = await fetch("/documents");
+        const data = await res.json();
+
+        console.log("Dữ liệu từ API /documents:", data); // Debug: Xem nó in ra cái gì
+
+        listContainer.innerHTML = ""; // Xóa loading cũ
+
+        // --- SỬA LỖI Ở ĐÂY: Tự động phát hiện cấu trúc dữ liệu ---
+        let files = [];
+        if (Array.isArray(data)) {
+            // Trường hợp 1: API trả về trực tiếp danh sách [file1, file2...]
+            files = data;
+        } else if (data.files && Array.isArray(data.files)) {
+            // Trường hợp 2: API trả về object { files: [...], count: 10 }
+            files = data.files;
+        } else {
+            console.warn("API không trả về mảng file hợp lệ.", data);
+            listContainer.innerHTML = `<div class="text-center text-red-500 py-4">Dữ liệu không hợp lệ.</div>`;
+            return;
+        }
+        // ---------------------------------------------------------
+
+        // ... (phần trên giữ nguyên)
+        if (files.length === 0) {
+            listContainer.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full py-10 opacity-50">
+            <span class="text-4xl mb-2">📭</span>
+            <p class="text-gray-600">Chưa có tài liệu nào được upload.</p>
+        </div>`;
+            return;
+        }
+
+        files.forEach(file => {
+            const div = document.createElement("div");
+            // SỬA CLASS TẠI ĐÂY: Dùng bg-white, shadow-sm, rounded-xl để tạo hình cái thẻ
+            div.className = "flex items-center justify-between p-4 mb-3 bg-white hover:shadow-md border border-gray-100 hover:border-blue-200 transition-all rounded-xl group cursor-pointer";
+
+            const dateStr = file.last_modified ? new Date(file.last_modified).toLocaleDateString() : "N/A";
+
+            div.innerHTML = `
+        <div class="flex items-center gap-4 overflow-hidden">
+            <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shadow-sm shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <div class="flex flex-col overflow-hidden">
+                <span class="font-semibold text-gray-800 truncate text-[15px] group-hover:text-blue-700 transition-colors" title="${file.filename}">
+                    ${file.filename}
+                </span>
+                <div class="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                    <span class="bg-gray-100 px-2 py-0.5 rounded-md">${formatBytes(file.size)}</span>
+                    <span>•</span>
+                    <span>${dateStr}</span>
+                </div>
+            </div>
+        </div>
+        <button class="opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 px-4 py-2 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-200 transition-all duration-300">
+            Xem file
+        </button>
+    `;
+
+            div.onclick = () => viewDocument(file.filename);
+            listContainer.appendChild(div);
+        });
+        // ... (phần catch lỗi giữ nguyên)
+
+    } catch (err) {
+        console.error(err);
+        listContainer.innerHTML = `<div class="text-red-500 text-center">❌ Lỗi tải danh sách: ${err.message}</div>`;
+    }
+}
+
+// 2. Đóng Modal Library
+function closeLibraryModal() {
+    const modal = document.getElementById('library-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+// 3. Xem File (Sử dụng lại Modal Preview có sẵn)
+function viewDocument(filename) {
+    // Ẩn modal danh sách đi để hiện modal preview
+    closeLibraryModal();
+
+    // Thay đổi tiêu đề modal preview
+    const modalTitle = document.querySelector("#preview-modal h2");
+    if (modalTitle) modalTitle.innerText = "📄 Đang xem: " + filename;
+
+    // Ẩn nút "Confirm & Ingest" vì đây là file đã có rồi, không cần upload lại
+    const btnConfirm = document.getElementById("btn-confirm");
+    if (btnConfirm) btnConfirm.style.display = "none";
+
+    // Set src cho iframe gọi vào API Stream
+    const iframe = document.getElementById('pdf-preview');
+    // encodeURIComponent để xử lý tên file có dấu cách
+    iframe.src = `/documents/view/${encodeURIComponent(filename)}`;
+
+    // Hiện modal preview
+    document.getElementById('preview-modal').classList.add('show');
+
+    // Sửa lại nút Cancel thành "Quay lại" để mở lại danh sách
+    const btnCancel = document.querySelector(".modal-btn-cancel");
+    btnCancel.onclick = () => {
+        closeModal(); // Đóng preview
+        openDocumentLibrary(); // Mở lại danh sách
+
+        // Reset lại giao diện modal (cho chức năng upload bình thường)
+        setTimeout(() => {
+            if (modalTitle) modalTitle.innerText = "📄 Review File Before Upload";
+            if (btnConfirm) btnConfirm.style.display = "block";
+            btnCancel.onclick = closeModal; // Trả lại hàm đóng bình thường
+        }, 500);
+    };
 }
