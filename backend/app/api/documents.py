@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, UploadFile, File
 from app.core.settings import settings
 from app.schemas.document import IngestResponse
@@ -5,8 +6,9 @@ from app.services.pdf_ingest import sha256_bytes, extract_pages
 from app.services.chucking.hierarchical_chunker import chunk_hierarchical
 from app.services.embedding import LocalEmbedder
 from app.services.milvus_store import ensure_collection, insert_chunks
-from app.services.minio_store import upload_pdf_to_minio
-
+from app.services.minio_store import upload_pdf_to_minio, get_file_stream
+from app.services.minio_store import list_files_in_minio
+from fastapi.responses import StreamingResponse
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 # init once
@@ -67,3 +69,28 @@ async def ingest_pdf(file: UploadFile = File(...)):
 
     insert_chunks(collection, rows)
     return IngestResponse(document_id=document_id, chunks_inserted=len(rows), filename=file.filename)
+
+@router.get("", response_model=List[dict])
+async def get_documents():
+    """
+    API lấy danh sách file từ MinIO để hiển thị lên Sidebar
+    """
+    return list_files_in_minio()
+
+
+@router.get("/{filename}")
+async def view_document(filename: str):
+    """
+    API stream file PDF về trình duyệt để xem trước
+    """
+    file_stream = get_file_stream(filename)
+    
+    if not file_stream:
+        return {"error": "File not found"}
+
+    # Trả về dạng stream để trình duyệt hiển thị luôn (inline)
+    return StreamingResponse(
+        file_stream, 
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"}
+    )

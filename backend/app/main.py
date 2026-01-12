@@ -18,16 +18,18 @@
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates 
 from fastapi.responses import HTMLResponse
-
+from fastapi.staticfiles import StaticFiles
 
 from app.api.documents import router as documents_router
 from app.api.query import router as query_router
 from app.api.debug import router as debug_router
 
 # 1. Khởi tạo App
+
 app = FastAPI(title="AI PDF RAG System")
 
 # 2. Cấu hình Jinja2 trỏ vào thư mục templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # 3. Include các router API cũ

@@ -2,7 +2,11 @@
 import httpx
 from app.core.settings import settings
 
-async def call_llm(question: str, context_blocks: list[dict]) -> str:
+async def call_llm(question: str, context_blocks: list[dict]):
+    """
+    Async generator that streams tokens from the LLM.
+    Yields individual tokens/chunks of the response.
+    """
     # Xử lý trường hợp nếu lỡ có ai gửi string vào (Fallback an toàn)
     if isinstance(context_blocks, str):
         context = context_blocks
@@ -41,25 +45,49 @@ async def call_llm(question: str, context_blocks: list[dict]) -> str:
             {"role": "user", "content": user},
         ],
         "temperature": 0.1, # Giảm nhiệt độ xuống thấp nhất để AI bớt "sáng tạo"
+        "stream": True,  # Enable streaming
     }
     
     # Kiểm tra settings có API KEY chưa
     if not settings.GROQ_API_KEY:
-        return "Error: Missing GROQ_API_KEY in server settings."
+        yield "Error: Missing GROQ_API_KEY in server settings."
+        return
 
     headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
-            r = await client.post(
+            async with client.stream(
+                "POST",
                 "https://api.groq.com/openai/v1/chat/completions",
                 json=payload,
                 headers=headers,
-            )
-            r.raise_for_status()
-            data = r.json()
-            return data["choices"][0]["message"]["content"]
+            ) as response:
+                if response.status_code >= 400:
+                    yield f"LLM Error: {response.status_code}"
+                    return
+                
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+                    
+                    # Groq uses SSE format: "data: {...}"
+                    if line.startswith("data: "):
+                        line = line[6:]  # Remove "data: " prefix
+                    
+                    if line == "[DONE]":
+                        break
+                    
+                    try:
+                        import json
+                        chunk = json.loads(line)
+                        token = chunk["choices"][0]["delta"].get("content", "")
+                        if token:
+                            yield token
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+                        
         except httpx.HTTPStatusError as e:
-            return f"LLM Error: {e.response.text}"
+            yield f"LLM Error: {e.response.text}"
         except Exception as e:
-            return f"System Error: {str(e)}"
+            yield f"System Error: {str(e)}"
