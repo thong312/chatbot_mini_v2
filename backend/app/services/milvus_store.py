@@ -110,3 +110,45 @@ def get_chunk_by_id(col: Collection, chunk_id: str):
     if res:
         return res[0] # Trả về dict chứa text
     return None
+
+# Thêm vào cuối file app/services/milvus_store.py
+
+def get_all_documents(col: Collection):
+    """
+    Hàm này lấy TOÀN BỘ dữ liệu để nạp cho BM25.
+    Đồng thời gom các trường lẻ (level, page...) vào dict 'metadata' để khớp với logic Pipeline.
+    """
+    try:
+        col.load()
+        
+        # Query lấy tất cả record có chunk_id khác rỗng
+        # Lưu ý: Milvus giới hạn mặc định 16384 dòng. Nếu nhiều hơn phải dùng iterator.
+        results = col.query(
+            expr="chunk_id != ''", 
+            output_fields=["chunk_id", "text", "document_id", "level", "parent_id", "page_start", "page_end"],
+            limit=10000 
+        )
+        
+        # CHUYỂN ĐỔI CẤU TRÚC (QUAN TRỌNG)
+        # Schema của bạn là các trường lẻ, nhưng Pipeline lại cần 'metadata'
+        # Ta sẽ tự tạo 'metadata' giả lập ở đây.
+        formatted_docs = []
+        for r in results:
+            formatted_docs.append({
+                "chunk_id": r["chunk_id"],
+                "text": r["text"],
+                "metadata": {
+                    "document_id": r["document_id"],
+                    "level": r.get("level", "standard"),
+                    "parent_id": r.get("parent_id", ""),
+                    "page_start": r["page_start"],
+                    "page_end": r["page_end"]
+                }
+            })
+            
+        print(f"📚 Đã load {len(formatted_docs)} documents cho BM25.")
+        return formatted_docs
+
+    except Exception as e:
+        print(f"⚠️ Lỗi khi load documents cho BM25: {e}")
+        return []

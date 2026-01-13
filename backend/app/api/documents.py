@@ -10,6 +10,10 @@ from app.services.milvus_store import ensure_collection, insert_chunks
 from app.services.minio_store import upload_pdf_to_minio, get_file_stream
 from app.services.minio_store import list_files_in_minio
 from fastapi.responses import StreamingResponse
+
+from app.core.global_state import global_rag_pipeline, collection 
+from app.services.milvus_store import get_all_documents
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 # init once
@@ -69,6 +73,9 @@ async def ingest_pdf(file: UploadFile = File(...)):
         })
 
     insert_chunks(collection, rows)
+    print("⚡ Triggering BM25 Update...")
+    current_docs = get_all_documents(collection)
+    global_rag_pipeline.reload_bm25(current_docs)
     return IngestResponse(document_id=document_id, chunks_inserted=len(rows), filename=file.filename)
 
 @router.get("", response_model=List[dict])

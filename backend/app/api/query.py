@@ -1,173 +1,111 @@
-# from fastapi import APIRouter
-# from app.core.settings import settings
-# from app.schemas.query import AskRequest, AskResponse
-# from app.services.embedding import LocalEmbedder
-# from app.services.rerank import LocalReranker
-# from app.services.milvus_store import ensure_collection, search
-# from app.services.llm_client import call_llm
-
-# router = APIRouter(prefix="", tags=["query"])
-
-# # Khởi tạo model 1 lần duy nhất khi start app
-# embedder = LocalEmbedder(settings.embed_model)
-# reranker = LocalReranker(settings.rerank_model)
-# collection = ensure_collection(dim=embedder.dim)
-
-# @router.post("/ask", response_model=AskResponse)
-# async def ask(req: AskRequest):
-#     # 1. Semantic Search (Vector)
-#     qvec = embedder.encode([req.question])[0]
-#     hits = search(collection, qvec, topk=req.topk)
-
-#     if not hits:
-#         return AskResponse(answer="Không tìm thấy tài liệu liên quan.", context=[])
-
-#     # 2. Rerank (Sắp xếp lại bằng model xịn hơn)
-#     passages = [h["text"] for h in hits]
-#     rr_scores = reranker.rerank(req.question, passages)
-
-#     for h, s in zip(hits, rr_scores):
-#         h["rerank_score"] = float(s)
-
-#     # Sắp xếp theo điểm rerank cao nhất
-#     hits_sorted = sorted(hits, key=lambda x: x["rerank_score"], reverse=True)
-
-#     # 3. Deduplication (Khử trùng lặp quan trọng)
-#     # Rất quan trọng với Hierarchical vì vector con thường cụm lại gần nhau
-#     seen_ids = set()
-#     unique_hits = []
-    
-#     for h in hits_sorted:
-#         if h["chunk_id"] not in seen_ids:
-#             unique_hits.append(h)
-#             seen_ids.add(h["chunk_id"])
-        
-#         # Chỉ lấy đủ số lượng rerank_topn yêu cầu
-#         if len(unique_hits) >= req.rerank_topn:
-#             break
-
-#     # 4. Context Construction (Tạo ngữ cảnh sạch)
-#     # Chỉ lấy phần TEXT để gửi cho LLM, loại bỏ metadata rác
-#     context_str = "\n\n---\n\n".join([h["text"] for h in unique_hits])
-
-#     # Debug: In ra terminal để xem context gửi đi có đúng không
-#     # print(f"Context sending to LLM ({len(context_str)} chars):\n{context_str[:200]}...")
-
-#     # 5. Gọi LLM
-#     answer = await call_llm(req.question, context_str)
-
-#     # 6. Trả về kết quả
-#     return AskResponse(
-#         answer=answer,
-#         context=[
-#             {
-#                 "chunk_id": h["chunk_id"],
-#                 "level": h.get("level", "unknown"), # Thêm info level để debug
-#                 "parent_id": h.get("parent_id"),    # Thêm info parent
-#                 "page_start": h.get("page_start"),
-#                 "page_end": h.get("page_end"),
-#                 "rerank_score": h["rerank_score"],
-#                 "text": h["text"]
-#             }
-#             for h in unique_hits
-#         ],
-#     )
 import json
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse  # <--- Import mới
+from fastapi.responses import StreamingResponse
 from app.core.settings import settings
 from app.schemas.query import AskRequest
-# from app.schemas.query import AskResponse  <--- Không dùng model này để return nữa
 from app.services.embedding import LocalEmbedder
 from app.services.rerank import LocalReranker
-from app.services.milvus_store import ensure_collection, search
-from app.services.llm_client import call_llm 
-
+from app.services.milvus_store import ensure_collection, get_all_documents
+from app.services.llm_client import call_llm
+# from app.services.advanced_retrieved import AdvancedRetriever
+from app.services.rag_pipeline import RAGPipeline
+from app.core.global_state import global_rag_pipeline
 router = APIRouter(prefix="", tags=["query"])
 
+# Khởi tạo các model
 embedder = LocalEmbedder(settings.embed_model)
 reranker = LocalReranker(settings.rerank_model)
 collection = ensure_collection(dim=embedder.dim)
 
-@router.post("/ask")  # Bỏ response_model=AskResponse
+real_docs = get_all_documents(collection)
+# Khởi tạo Retriever Service
+# retriever = AdvancedRetriever(collection, embedder, reranker)
+rag_pipeline = RAGPipeline(collection, 
+                           embedder, 
+                           reranker, 
+                           all_docs_for_bm25=real_docs)
+@router.post("/ask")
 async def ask(req: AskRequest):
-    # 1. Semantic Search (Giữ nguyên)
-    qvec = embedder.encode([req.question])[0]
-    hits = search(collection, qvec, topk=req.topk)
+    # --- BƯỚC 1: RETRIEVAL (Gọi Service thông minh) ---
+    # Service sẽ tự lo việc mở rộng câu hỏi, search vector và rerank
+    unique_hits = await global_rag_pipeline.run(
+        original_question=req.question,
+        topk=req.topk,
+        rerank_topn=req.rerank_topn
+    )
 
-    # Xử lý trường hợp không tìm thấy (trả về lỗi dạng stream hoặc json đóng ngay)
-    if not hits:
+    # Nếu không tìm thấy gì
+    if not unique_hits:
         async def empty_generator():
             yield json.dumps({
                 "type": "error", 
-                "message": "Không tìm thấy tài liệu liên quan.", 
+                "message": "Không tìm thấy tài liệu liên quan sau khi đã thử mở rộng tìm kiếm.", 
                 "context": []
             }, ensure_ascii=False) + "\n"
         return StreamingResponse(empty_generator(), media_type="application/x-ndjson")
 
-    # 2. Rerank (Giữ nguyên)
-    passages = [h["text"] for h in hits]
-    rr_scores = reranker.rerank(req.question, passages)
-
-    for h, s in zip(hits, rr_scores):
-        h["rerank_score"] = float(s)
-
-    hits_sorted = sorted(hits, key=lambda x: x["rerank_score"], reverse=True)
-
-    # 3. Deduplication (Giữ nguyên)
-    seen_ids = set()
-    unique_hits = []
-    
-    for h in hits_sorted:
-        if h["chunk_id"] not in seen_ids:
-            unique_hits.append(h)
-            seen_ids.add(h["chunk_id"])
-        if len(unique_hits) >= req.rerank_topn:
-            break
-
-    # 4. Context Construction (Giữ nguyên logic tạo chuỗi cho LLM)
-    context_str = "\n\n---\n\n".join([h["text"] for h in unique_hits])
-
-    # ---------------------------------------------------------
-    # PHẦN LOGIC STREAMING MỚI
-    # ---------------------------------------------------------
+    # --- BƯỚC 2: GENERATION (Streaming) ---
     async def response_generator():
-        """
-        Hàm này sẽ yield dữ liệu theo chuẩn NDJSON (Newline Delimited JSON).
-        Dòng 1: Trả về Metadata/Context (để client hiển thị nguồn trước).
-        Dòng 2 -> N: Trả về từng token của câu trả lời.
-        """
-        
-        # --- BƯỚC A: Gửi Context ngay lập tức ---
+        # A. Gửi Context
         context_data = [
             {
                 "chunk_id": h["chunk_id"],
-                "level": h.get("level", "unknown"),
-                "parent_id": h.get("parent_id"),
-                "page_start": h.get("page_start"),
-                "page_end": h.get("page_end"),
+                "text": h["text"],
                 "rerank_score": h["rerank_score"],
-                "text": h["text"]
+                "page_start": h.get("page_start"),
+                "page_end": h.get("page_end")
             }
             for h in unique_hits
         ]
         
-        # Gửi gói JSON đầu tiên chứa context
-        # "type": "context" giúp frontend phân biệt đây là metadata
         yield json.dumps({
             "type": "context", 
             "payload": context_data
         }, ensure_ascii=False) + "\n"
 
-        # --- BƯỚC B: Gửi Token từ LLM ---
-        # Lưu ý: Hàm call_llm phải hỗ trợ streaming (yield từng từ)
-        # Nếu call_llm của bạn chưa hỗ trợ stream, bạn cần sửa nó trước.
+        # B. Gửi Answer (Gọi LLM)
+        # Truyền list unique_hits vào để LLM tự trích xuất citation [p1]
         async for token in call_llm(req.question, unique_hits):
-                if token:
-                    yield json.dumps({
-                        "type": "answer", 
-                        "payload": token
-                    }, ensure_ascii=False) + "\n"
-    # 6. Trả về StreamingResponse
-    # media_type="application/x-ndjson" báo hiệu cho client biết đây là dữ liệu JSON theo từng dòng
+            if token:
+                yield json.dumps({
+                    "type": "answer", 
+                    "payload": token
+                }, ensure_ascii=False) + "\n"
+
     return StreamingResponse(response_generator(), media_type="application/x-ndjson")
+
+@router.post("/debug-retrieval")
+async def debug_retrieval(req: AskRequest):
+    """
+    API này dùng để test xem hệ thống tìm được tài liệu gì 
+    mà KHÔNG gọi LLM sinh câu trả lời.
+    """
+    # 1. Xem các câu hỏi phụ được sinh ra
+    # Lưu ý: Bạn cần sửa nhẹ class AdvancedRetriever để hàm retrieve trả về cả sub_queries 
+    # Hoặc gọi thủ công hàm _generate_multi_queries ở đây để test:
+    
+    print(f"Test Query: {req.question}")
+    
+    # Gọi hàm sinh query phụ thủ công để xem kết quả
+    sub_queries = await retriever._generate_multi_queries(req.question)
+    
+    # Gọi hàm tìm kiếm thực tế
+    unique_hits = await retriever.retrieve(
+        question=req.question,
+        topk=req.topk,
+        rerank_topn=req.rerank_topn,
+        use_expansion=True
+    )
+    
+    return {
+        "original_query": req.question,
+        "generated_sub_queries": sub_queries,
+        "top_results": [
+            {
+                "score": h["rerank_score"],
+                "text_snippet": h["text"][:100] + "...", # Chỉ hiện 100 ký tự đầu
+                "source": h["metadata"].get("source")
+            }
+            for h in unique_hits
+        ]
+    }

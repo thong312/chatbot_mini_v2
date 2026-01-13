@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     #===LLM (Deepseek) =====
     # llm_base_url: str = "https://api.deepseek.com"
     # DEEPSEEK_API_KEY: str
-    # llm_model: str = "deep-seek-chat"
+    # llm_model: str = "deepseek-chat"
 
     # ===== Local models =====
     embed_model: str = "BAAI/bge-m3"
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra="ignore"
 
 settings = Settings()
 # Sử dụng singleton settings trong toàn bộ app
