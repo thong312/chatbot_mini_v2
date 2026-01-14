@@ -82,3 +82,39 @@ async def call_llm(question: str, context_blocks: List[Dict], history: List[Mess
     except Exception as e:
         logger.error(f"Unknown Error: {e}")
         yield f"\n[Lỗi hệ thống: {str(e)}]"
+
+async def call_llm_general(question: str, history: List[Message] = []) -> AsyncGenerator[str, None]:
+    """
+    Hàm này dùng cho các câu hỏi phổ quát, coding, chào hỏi.
+    Không nhận context_blocks.
+    """
+    system_prompt = (
+        "You are a helpful and knowledgeable AI assistant. "
+        "Answer the user's question to the best of your ability using your general knowledge. "
+        "Be concise and friendly."
+    )
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Thêm lịch sử chat
+    if history:
+        for msg in history[-6:]:
+            messages.append({"role": msg.role, "content": msg.content})
+            
+    messages.append({"role": "user", "content": question})
+
+    try:
+        stream = await openai_client.chat.completions.create(
+            model=settings.llm_model,
+            messages=messages,
+            temperature=0.7, # Tăng sáng tạo cho chat thường
+            stream=True
+        )
+        
+        async for chunk in stream:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
+    except Exception as e:
+        logger.error(f"General LLM Error: {e}")
+        yield f"[Lỗi: {str(e)}]"        

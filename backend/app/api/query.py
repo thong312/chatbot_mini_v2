@@ -4,10 +4,14 @@ from fastapi.responses import StreamingResponse
 from app.schemas.query import AskRequest, Message
 # Import Pipeline toàn cục (để dùng chung RAM với bên upload)
 from app.core.global_state import global_rag_pipeline
-from app.services.llm_client import call_llm
+from app.services.llm_client import call_llm, call_llm_general
 # Import service Chat History (MongoDB)
 from app.services.chat_history import get_chat_history, add_message_to_history
 import uuid
+
+from app.services.router import route_query
+
+
 router = APIRouter(prefix="", tags=["query"])
 
 # --- LƯU Ý: ĐÃ XÓA ĐOẠN KHỞI TẠO LOCAL MODEL ĐỂ TIẾT KIỆM RAM ---
@@ -31,59 +35,58 @@ async def ask(req: AskRequest):
     # (Nếu db trả về rỗng thì list này rỗng, không sao cả)
     history_objs = [Message(**msg) for msg in db_history_dicts]
 
-    # --- BƯỚC 2: RETRIEVAL (Search & Rerank) ---
-    unique_hits = await global_rag_pipeline.run(
-        original_question=req.question,
-        topk=req.topk,
-        rerank_topn=req.rerank_topn
-    )
+    mode = await route_query(req.question)
+    print(f"🔄 Router Decision: {mode}") # Log ra xem nó chọn gì
 
-    # Nếu không tìm thấy gì
-    if not unique_hits:
-        async def empty_generator():
-            yield json.dumps({
-                "type": "error", 
-                "message": "Không tìm thấy tài liệu liên quan.", 
-                "context": []
-            }, ensure_ascii=False) + "\n"
-        return StreamingResponse(empty_generator(), media_type="application/x-ndjson")
-
-    # --- BƯỚC 3: GENERATION & SAVING (Streaming) ---
     async def response_generator():
-        # A. Lưu ngay câu hỏi của User vào DB (Để chắc chắn đã ghi nhận)
-        await add_message_to_history(session_id, "user", req.question)
-
-        # B. Gửi Context cho Client
-        context_data = [
-            {
-                "chunk_id": h["chunk_id"],
-                "text": h["text"],
-                "rerank_score": h.get("rerank_score", 0),
-                "source": h.get("metadata", {}).get("source", "unknown"),
-                "page_start": h.get("metadata", {}).get("page_start"),
-                "page_end": h.get("metadata", {}).get("page_end")
-            }
-            for h in unique_hits
-        ]
-        
+        # A. Gửi Session ID & MODE về Client
+        # Client sẽ dùng cái "mode" này để hiển thị icon khác nhau
         yield json.dumps({
-            "type": "context", 
-            "payload": context_data
+            "type": "meta_info", # Gộp chung info
+            "session_id": session_id,
+            "mode": mode 
         }, ensure_ascii=False) + "\n"
 
-        # C. Gọi LLM và gom câu trả lời để lưu DB
+        # B. Lưu câu hỏi User
+        await add_message_to_history(session_id, "user", req.question)
+
         full_answer = ""
+
+        # --- NHÁNH 1: RAG MODE (Tìm trong PDF) ---
+        if mode == "RAG":
+            unique_hits = await global_rag_pipeline.run(
+                original_question=req.question,
+                topk=req.topk,
+                rerank_topn=req.rerank_topn
+            )
+            
+            # Gửi context nếu có
+            if unique_hits:
+                context_data = [
+                    {
+                        "chunk_id": h["chunk_id"], 
+                        "text": h["text"], 
+                        "rerank_score": h.get("rerank_score", 0),
+                        "metadata": h.get("metadata")
+                    } for h in unique_hits
+                ]
+                yield json.dumps({"type": "context", "payload": context_data}, ensure_ascii=False) + "\n"
+            
+            # Gọi LLM RAG
+            async for token in call_llm(req.question, unique_hits, history_objs):
+                if token:
+                    full_answer += token
+                    yield json.dumps({"type": "answer", "payload": token}, ensure_ascii=False) + "\n"
+
+        # --- NHÁNH 2: GENERAL MODE (Chat thường) ---
+        else:
+            # Gọi LLM General (Không cần context hits)
+            async for token in call_llm_general(req.question, history_objs):
+                if token:
+                    full_answer += token
+                    yield json.dumps({"type": "answer", "payload": token}, ensure_ascii=False) + "\n"
         
-        # QUAN TRỌNG: Truyền history_objs (lấy từ DB) vào đây
-        async for token in call_llm(req.question, unique_hits, history_objs):
-            if token:
-                full_answer += token
-                yield json.dumps({
-                    "type": "answer", 
-                    "payload": token
-                }, ensure_ascii=False) + "\n"
-        
-        # D. Lưu câu trả lời trọn vẹn của Bot vào DB
+        # C. Lưu câu trả lời Assistant
         if full_answer:
             await add_message_to_history(session_id, "assistant", full_answer)
 

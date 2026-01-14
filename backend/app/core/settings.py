@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     llm_model: str = "llama-3.3-70b-versatile"
     
     #===LLM (Deepseek) =====
-    # llm_base_url: str = "https://api.deepseek.com"
-    # DEEPSEEK_API_KEY: str
-    # llm_model: str = "deepseek-chat"
+    llm_agent_base_url: str = "https://api.sambanova.ai/v1"
+    AGENT_API_KEY: str
+    llm_agent_model: str = "Llama-3.3-Swallow-70B-Instruct-v0.4"
 
     # ===== Local models =====
     embed_model: str = "BAAI/bge-m3"

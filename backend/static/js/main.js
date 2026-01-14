@@ -48,7 +48,7 @@ async function uploadPDF() {
             document.getElementById('pdf-preview').src = '';
             closeModal();
             // [MỚI] Sau khi upload, nên clear session cũ để AI cập nhật kiến thức mới tốt hơn
-            newChat(); 
+            newChat();
         } else {
             alert(`❌ Lỗi server: ${JSON.stringify(data)}`);
         }
@@ -62,8 +62,8 @@ async function uploadPDF() {
         }
     }
 }
-
-// 2. Hàm Gửi Tin Nhắn (ĐÃ CẬP NHẬT LOGIC SESSION)
+let currentMsgMode = "RAG";
+// Biến lưu mode hiện tại của câu trả lời đang stream
 async function sendMessage() {
     const question = userInput.value.trim();
     if (!question) return;
@@ -74,9 +74,11 @@ async function sendMessage() {
     sendBtn.disabled = true;
 
     // Tạo bong bóng chat "Thinking..."
+    // loadingId chính là ID của cái thẻ div tin nhắn đang chờ
     const loadingId = appendMessage("Thinking...", 'ai', true);
+
     const aiMessageDiv = document.getElementById(loadingId);
-    const aiContentDiv = aiMessageDiv.querySelector("p") || aiMessageDiv; // Tìm thẻ p chứa text
+    const aiContentDiv = aiMessageDiv.querySelector("p") || aiMessageDiv;
 
     try {
         const res = await fetch("/ask", {
@@ -84,7 +86,7 @@ async function sendMessage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 question: question,
-                session_id: currentSessionId, // <--- [MỚI] GỬI KÈM SESSION ID
+                session_id: currentSessionId,
                 topk: 10,
                 rerank_topn: 5
             })
@@ -104,16 +106,32 @@ async function sendMessage() {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
-            buffer = lines.pop(); 
+            buffer = lines.pop();
 
             for (const line of lines) {
                 if (!line.trim()) continue;
                 try {
                     const json = JSON.parse(line);
 
-                    // --- [MỚI] XỬ LÝ SESSION ID TỪ SERVER ---
-                    if (json.type === "session_info") {
-                        console.log("🔄 Session ID Update:", json.payload);
+                    // --- [SỬA ĐOẠN NÀY] XỬ LÝ META INFO (SESSION + MODE) ---
+                    // Backend trả về type là "meta_info", không phải "session_info" nữa
+                    if (json.type === "meta_info") {
+                        console.log("ℹ️ Meta Info:", json);
+
+                        // 1. Cập nhật Session ID
+                        if (json.session_id) {
+                            currentSessionId = json.session_id;
+                            localStorage.setItem("rag_session_id", currentSessionId);
+                        }
+
+                        // 2. Cập nhật Badge (General hay RAG)
+                        if (json.mode) {
+                            updateMessageBadge(loadingId, json.mode);
+                        }
+                    }
+
+                    // Fallback: Nếu backend cũ vẫn trả về session_info
+                    else if (json.type === "session_info") {
                         currentSessionId = json.payload;
                         localStorage.setItem("rag_session_id", currentSessionId);
                     }
@@ -123,7 +141,7 @@ async function sendMessage() {
                         if (isFirstToken) {
                             if (aiMessageDiv) {
                                 aiContentDiv.innerHTML = ""; // Xóa chữ Thinking
-                                aiContentDiv.classList.remove("animate-pulse"); 
+                                aiContentDiv.classList.remove("animate-pulse");
                             }
                             isFirstToken = false;
                         }
@@ -137,9 +155,6 @@ async function sendMessage() {
 
                     // Xử lý: Context (Nguồn)
                     else if (json.type === "context") {
-                        // Logic cũ của bạn render context rất tốt, giữ nguyên nhưng cần gọi lại hàm render
-                        // Vì appendMessage ban đầu context là [], giờ mới có data
-                        // Ta sẽ chèn context vào cuối message div
                         if (json.payload && json.payload.length > 0) {
                             const contextHTML = renderContextHTML(json.payload);
                             aiMessageDiv.insertAdjacentHTML('beforeend', contextHTML);
@@ -174,7 +189,28 @@ async function sendMessage() {
         userInput.focus();
     }
 }
+// Kiểm tra mode
+function updateMessageBadge(msgId, mode) {
+    const msgDiv = document.getElementById(msgId);
+    if (!msgDiv) return;
 
+    // Kiểm tra xem đã có badge chưa, chưa có thì tạo
+    let badge = msgDiv.querySelector(".mode-badge");
+    if (!badge) {
+        badge = document.createElement("div");
+        badge.className = "mode-badge text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block border";
+        // Chèn badge vào đầu tin nhắn
+        msgDiv.insertBefore(badge, msgDiv.firstChild);
+    }
+
+    if (mode === "GENERAL") {
+        badge.innerText = "🌐 General Knowledge";
+        badge.className += " bg-purple-100 text-purple-700 border-purple-200";
+    } else {
+        badge.innerText = "📄 Document Context";
+        badge.className += " bg-blue-100 text-blue-700 border-blue-200";
+    }
+}
 // --- [MỚI] TÁCH HÀM RENDER CONTEXT RA RIÊNG ĐỂ DỄ DÙNG LẠI ---
 function renderContextHTML(context) {
     if (!context || context.length === 0) return "";
@@ -223,7 +259,7 @@ function appendMessage(text, role, isLoading = false, context = []) {
     }
 
     const safeText = text ? text.replace(/\n/g, '<br>') : "";
-    
+
     // Lưu nội dung vào thẻ <p> để lát dễ thay đổi mà không mất context
     let htmlContent = `<p>${safeText}</p>`;
 
@@ -248,7 +284,7 @@ function appendMessage(text, role, isLoading = false, context = []) {
 function newChat() {
     // Xóa LocalStorage
     localStorage.removeItem("rag_session_id");
-    currentSessionId = null; 
+    currentSessionId = null;
 
     // Reset giao diện
     chatHistory.innerHTML = `
