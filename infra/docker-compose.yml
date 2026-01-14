@@ -1,4 +1,4 @@
-version: "3.0" # Nên nâng version lên xíu
+version: "3.8"
 
 services:
   milvus-etcd:
@@ -19,13 +19,12 @@ services:
     environment:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
-    # --- SỬA DÒNG NÀY: Thêm tham số --console-address ---
     command: minio server /minio_data --console-address ":9001"
     volumes:
       - milvus_minio:/minio_data
     ports:
-      - "9000:9000" # API Port (Cho code Python dùng)
-      - "9001:9001" # Console Port (Cho bạn vào web xem file)
+      - "9000:9000"
+      - "9001:9001"
 
   milvus-standalone:
     image: milvusdb/milvus:v2.4.4
@@ -42,7 +41,21 @@ services:
       - milvus-etcd
       - milvus-minio
 
+  # --- DỊCH VỤ MỚI: MONGODB (LƯU LỊCH SỬ CHAT) ---
+  mongo:
+    image: mongo:latest
+    container_name: rag_mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
 volumes:
   milvus_etcd:
   milvus_minio:
   milvus_data:
+  mongo_data: # <--- Đừng quên khai báo volume mới ở đây

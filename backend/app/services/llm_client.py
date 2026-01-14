@@ -1,12 +1,12 @@
 # app/services/llm_client.py
 
 import logging
+from app.schemas.query import Message
 from typing import List, Dict, AsyncGenerator
 from openai import AsyncOpenAI, APIError
 from app.core.settings import settings
 
-# --- 1. KHỞI TẠO CLIENT TOÀN CỤC (QUAN TRỌNG) ---
-# Biến này phải nằm ở ngoài hàm để các file khác (như rag_pipeline.py) import được
+# --- 1. KHỞI TẠO CLIENT TOÀN CỤC ---
 openai_client = AsyncOpenAI(
     api_key=settings.GROQ_API_KEY,
     base_url=settings.llm_base_url,
@@ -14,28 +14,23 @@ openai_client = AsyncOpenAI(
 
 logger = logging.getLogger(__name__)
 
-# --- 2. HÀM GỌI LLM (Đã cập nhật dùng openai_client) ---
-async def call_llm(question: str, context_blocks: List[Dict]) -> AsyncGenerator[str, None]:
+# --- 2. HÀM GỌI LLM (ĐÃ SỬA LỖI) ---
+async def call_llm(question: str, context_blocks: List[Dict], history: List[Message] = []) -> AsyncGenerator[str, None]:
     """
-    Hàm này chuyên dùng cho RAG: Nhận context -> Trả về streaming response
-    Yields individual tokens/chunks of the response.
+    Hàm này chuyên dùng cho RAG: Nhận context + History -> Trả về streaming response
     """
-    # Xử lý trường hợp nếu lỡ có ai gửi string vào (Fallback an toàn)
+    # --- A. Xử lý Context (Như cũ) ---
     if isinstance(context_blocks, str):
         context_text = context_blocks
     else:
-        # Logic trích xuất citation [p1-2]
         context_list = []
         for i, c in enumerate(context_blocks):
-            # Dùng .get() để an toàn nếu thiếu key
             source = c.get('metadata', {}).get('source', 'unknown')
             text = c.get('text', '')
-            # Thêm index để LLM dễ trích dẫn, ví dụ: [Tài liệu 1]
             context_list.append(f"[Tài liệu {i+1} - Nguồn: {source}]:\n{text}")
-            
         context_text = "\n\n---\n\n".join(context_list)
 
-    # System Prompt được tinh chỉnh cho RAG
+    # --- B. Chuẩn bị Prompt ---
     system_prompt = (
         "You are a neutral, objective research assistant designed to extract facts from provided documents. "
         "Your task is to answer the user's question based STRICTLY on the provided context below. "
@@ -45,21 +40,35 @@ async def call_llm(question: str, context_blocks: List[Dict]) -> AsyncGenerator[
         "When you receive a greeting from the user, respond with a greeting as well."
     )
     
-    user_prompt = (
+    # Prompt cho câu hỏi hiện tại kèm context
+    user_prompt_content = (
         f"Question: {question}\n\n"
         "Here is the context from the document:\n"
         f"<context>\n{context_text}\n</context>"
     )
 
+    # --- C. XÂY DỰNG LIST MESSAGES (FIX LỖI NAME ERROR TẠI ĐÂY) ---
+    # 1. Bắt đầu với System Prompt
+    messages = [
+        {"role": "system", "content": system_prompt}
+    ]
+
+    # 2. Chèn lịch sử chat (History) vào giữa (nếu có)
+    # Lưu ý: history là List[Message] (Pydantic model), cần truy cập .role và .content
+    if history:
+        # Lấy 6 tin nhắn gần nhất để tiết kiệm token
+        for msg in history[-6:]:
+            messages.append({"role": msg.role, "content": msg.content})
+
+    # 3. Cuối cùng mới chèn câu hỏi hiện tại của user
+    messages.append({"role": "user", "content": user_prompt_content})
+
+    # --- D. Gọi API ---
     try:
-        # Gọi qua thư viện OpenAI (Gọn hơn nhiều so với dùng httpx)
         stream = await openai_client.chat.completions.create(
             model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.1, # Giữ thấp để trung thực với tài liệu
+            messages=messages, # <--- Truyền biến messages đã xây dựng ở trên
+            temperature=0.1,
             stream=True
         )
 
