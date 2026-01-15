@@ -1,4 +1,4 @@
-# AI PDF RAG System
+# CHAT A.I+
 
 A Retrieval-Augmented Generation (RAG) system for querying PDF documents. This project uses local embeddings and reranking with Milvus for vector storage, MinIO for file storage, MongoDB for chat history, and an external LLM (Groq) for generation.
 
@@ -6,6 +6,7 @@ A Retrieval-Augmented Generation (RAG) system for querying PDF documents. This p
 - **PDF Ingestion**: Advanced parsing with hierarchical chunking (Parent/Child) for better context.
 - **Hybrid Search**: Combines Milvus vector similarity search with BM25 keyword search.
 - **Intelligent Routing**: Automatically classifies queries into 'RAG' (document-based) or 'GENERAL' (knowledge-based) using an LLM router.
+- **Observability**: Integrated with Arize Phoenix for LLM tracing and evaluation.
 - **Local Embeddings**: Utilizes `BAAI/bge-m3` for high-quality multilingual embeddings.
 - **Reranking**: Enhances precision with `BAAI/bge-reranker-v2-m3`.
 - **Chat History**: Persistent session management using MongoDB.
@@ -83,6 +84,7 @@ The server will start at `http://localhost:8000`.
 ## Usage
 
 - **Web Interface**: Open [http://localhost:8000](http://localhost:8000) to upload PDFs and query them.
+- **Phoenix UI**: Open [http://localhost:6006](http://localhost:6006) to view traces and evaluate LLM performance.
 - **API Documentation**: Open [http://localhost:8000/docs](http://localhost:8000/docs) to explore the Swagger UI.
 - **MinIO Console**: Open [http://localhost:9001](http://localhost:9001) (User: `minioadmin`, Pass: `minioadmin`) to view stored files.
 

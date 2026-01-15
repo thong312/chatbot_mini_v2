@@ -25,6 +25,10 @@ dependencies = [
   "openai>=2.15.0",
   "rank-bm25>=0.2.2",
   "motor>=3.7.1",
+  "arize-phoenix>=12.29.0",
+  "openinference-instrumentation-openai>=0.1.41",
+  "opentelemetry-sdk>=1.39.1",
+  "opentelemetry-exporter-otlp>=1.39.1",
 ]
 
 [tool.uv]
