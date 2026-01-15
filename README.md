@@ -1,24 +1,25 @@
 # AI PDF RAG System
 
-A Retrieval-Augmented Generation (RAG) system for querying PDF documents. This project uses local embeddings and reranking with Milvus for vector storage, MinIO for file storage, and an external LLM (Groq) for generation.
+A Retrieval-Augmented Generation (RAG) system for querying PDF documents. This project uses local embeddings and reranking with Milvus for vector storage, MinIO for file storage, MongoDB for chat history, and an external LLM (Groq) for generation.
 
 ## Features
-- **PDF Ingestion**: Parses and chunks PDF documents.
-- **Vector Search**: Uses Milvus for high-performance vector similarity search.
-- **Local Embeddings**: Utilizes `BAAI/bge-m3` for state-of-the-art embeddings.
-- **Reranking**: Improves retrieval accuracy with `BAAI/bge-reranker-v2-m3`.
-- **Hybrid Storage**: Stores raw files in MinIO and vectors in Milvus.
-- **Interactive UI**: Simple web interface for uploading documents and chatting.
+- **PDF Ingestion**: Advanced parsing with hierarchical chunking (Parent/Child) for better context.
+- **Hybrid Search**: Combines Milvus vector similarity search with BM25 keyword search.
+- **Intelligent Routing**: Automatically classifies queries into 'RAG' (document-based) or 'GENERAL' (knowledge-based) using an LLM router.
+- **Local Embeddings**: Utilizes `BAAI/bge-m3` for high-quality multilingual embeddings.
+- **Reranking**: Enhances precision with `BAAI/bge-reranker-v2-m3`.
+- **Chat History**: Persistent session management using MongoDB.
+- **Modular UI**: Modern, responsive frontend built with ES Modules and Tailwind CSS.
 
 ## Prerequisites
-- **Docker & Docker Compose**: For running Milvus and MinIO.
+- **Docker & Docker Compose**: For running Milvus, MinIO, and MongoDB.
 - **Python 3.10+**
 - **uv** (Recommended for dependency management) or `pip`.
 
 ## Setup & Installation
 
 ### 1. Start Infrastructure
-Start the required services (Milvus and MinIO) using Docker Compose.
+Start the required services (Milvus, MinIO, and MongoDB) using Docker Compose.
 
 ```bash
 docker-compose -f infra/docker-compose.yml up -d
@@ -26,7 +27,8 @@ docker-compose -f infra/docker-compose.yml up -d
 
 This will start:
 - **Milvus** (Vector DB) on port `19530`
-- **MinIO** (Object Storage) API on port `9000`, Console on `9001`
+- **MinIO** (Object Storage) on `9000` (API) & `9001` (Console)
+- **MongoDB** (Chat History) on port `27017`
 - **etcd** (Metadata storage for Milvus)
 
 ### 2. Backend Configuration
@@ -41,6 +43,9 @@ Create a `.env` file in the `backend` directory with your API keys. You will nee
 ```ini
 # .env
 GROQ_API_KEY=your_groq_api_key_here
+
+# MongoDB Configuration
+MONGO_URI=mongodb://root:example@localhost:27017
 
 # Optional overrides (defaults shown)
 # MINIO_ENDPOINT=http://localhost:9000
@@ -86,10 +91,13 @@ The server will start at `http://localhost:8000`.
 ```
 ├── backend/            # Python FastAPI application
 │   ├── app/            # Application source code
-│   │   ├── api/        # API endpoints
-│   │   ├── core/       # Settings and config
-│   │   ├── services/   # Business logic (Chunking, Embedding, Storage)
-│   │   └── templates/  # HTML templates
+│   │   ├── api/        # API endpoints (query, documents, debug)
+│   │   ├── core/       # Settings and global state
+│   │   ├── services/   # Business logic (RAG pipeline, chunking, rerank, router)
+│   │   ├── schemas/    # Pydantic models
+│   │   └── utils/      # Helper functions
+│   ├── static/         # Frontend assets (JS modules, CSS)
+│   ├── templates/      # HTML templates
 │   ├── pyproject.toml  # Dependency configuration
 ├── infra/              # Infrastructure configuration (Docker)
 │   └── docker-compose.yml
