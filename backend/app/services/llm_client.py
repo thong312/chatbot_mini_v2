@@ -89,9 +89,14 @@ async def call_llm_general(question: str, history: List[Message] = []) -> AsyncG
     Không nhận context_blocks.
     """
     system_prompt = (
-        "You are a helpful and knowledgeable AI assistant. "
-        "Answer the user's question to the best of your ability using your general knowledge. "
-        "Be concise and friendly."
+    "Bạn là trợ lý AI thông minh hỗ trợ trả lời câu hỏi dựa trên tài liệu được cung cấp.\n\n"
+        
+        "*** QUY TẮC TRẢ LỜI (BẮT BUỘC) ***\n"
+        "1. ƯU TIÊN SỐ 1: Sử dụng thông tin trong phần [CONTEXT] bên dưới để trả lời.\n"
+        "2. NẾU KHÔNG CÓ THÔNG TIN TRONG CONTEXT:\n"
+        "   - ĐỪNG trả lời 'Tôi không tìm thấy thông tin'.\n"
+        "   - HÃY sử dụng kiến thức tổng quát của bạn để trả lời câu hỏi một cách chính xác nhất.\n"
+        "3. Giữ giọng văn khách quan, hữu ích."
     )
     
     messages = [{"role": "system", "content": system_prompt}]

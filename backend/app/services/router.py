@@ -18,35 +18,35 @@ async def route_query(question: str) -> str:
     - Trả về 'GENERAL': Nếu là chào hỏi, coding, kiến thức phổ quát (thủ đô nước Pháp, cách nấu phở...).
     """
     system_prompt = (
-            "You are the Gatekeeper for a RAG (Retrieval-Augmented Generation) system. "
-            "Your SOLE job is to classify the user's input into 'RAG' or 'GENERAL'.\n\n"
-            
-            "*** CRITICAL DIRECTIVE ***\n"
-            "Your default assumption MUST be 'RAG'. You should only choose 'GENERAL' in very specific, non-factual scenarios.\n\n"
+        "Bạn là 'Người gác cổng' (Gatekeeper) cho một hệ thống RAG (Retrieval-Augmented Generation). "
+        "Nhiệm vụ DUY NHẤT của bạn là phân loại đầu vào của người dùng thành 'RAG' hoặc 'GENERAL'.\n\n"
+        
+        "*** CHỈ THỊ QUAN TRỌNG ***\n"
+        "Giả định mặc định của bạn BẮT BUỘC phải là 'RAG'. Bạn chỉ được chọn 'GENERAL' trong các tình huống rất cụ thể, phi thực tế (non-factual).\n\n"
 
-            "*** CATEGORY DEFINITIONS ***\n"
-            "1. RAG (Search Document) - Select this for 95% of queries, including:\n"
-            "   - ANY question asking for facts, news, history, politics, laws, or definitions.\n"
-            "   - ANY question about specific entities (e.g., 'Maduro', 'Trump', 'Vietnam', 'War', 'Company X'), even if they are famous.\n"
-            "   - ANY question asking 'Who', 'What', 'Where', 'When', 'Why', 'How'.\n"
-            "   - ANY mention of 'document', 'file', 'text', 'summary', 'analyze'.\n"
-            "   - Ambiguous queries (e.g., 'Is it true?', 'Explain this').\n\n"
-            
-            "2. GENERAL (Chat/Task) - Select this ONLY for:\n"
-            "   - Pure greetings/farewells (e.g., 'Hello', 'Hi', 'Good morning', 'Bye', 'Thank you').\n"
-            "   - Requests to write code (e.g., 'Write a Python script', 'Fix this bug').\n"
-            "   - Creative writing tasks NOT based on facts (e.g., 'Write a poem about love', 'Tell me a joke').\n"
-            "   - General translation requests without context.\n\n"
+        "*** ĐỊNH NGHĨA DANH MỤC ***\n"
+        "1. RAG (Tra cứu tài liệu) - Chọn cái này cho 95% các truy vấn, bao gồm:\n"
+        "   - BẤT KỲ câu hỏi nào hỏi về sự kiện thực tế, tin tức, lịch sử, chính trị, luật pháp, hoặc định nghĩa.\n"
+        "   - BẤT KỲ câu hỏi nào về các thực thể cụ thể (ví dụ: 'Maduro', 'Trump', 'Việt Nam', 'Chiến tranh', 'Công ty X'), ngay cả khi chúng nổi tiếng.\n"
+        "   - BẤT KỲ câu hỏi nào dạng 'Ai', 'Cái gì', 'Ở đâu', 'Khi nào', 'Tại sao', 'Làm thế nào'.\n"
+        "   - BẤT KỲ đề cập nào đến 'tài liệu', 'file', 'văn bản', 'tóm tắt', 'phân tích'.\n"
+        "   - Các câu hỏi mơ hồ (ví dụ: 'Điều đó có thật không?', 'Giải thích cái này').\n\n"
+        
+        "2. GENERAL (Trò chuyện/Tác vụ) - Chọn cái này CHỈ KHI:\n"
+        "   - Các câu chào hỏi/tạm biệt thuần túy (ví dụ: 'Xin chào', 'Hi', 'Chào buổi sáng', 'Tạm biệt', 'Cảm ơn').\n"
+        "   - Yêu cầu viết code (ví dụ: 'Viết script Python', 'Sửa lỗi code này').\n"
+        "   - Các tác vụ viết sáng tạo KHÔNG dựa trên sự thật (ví dụ: 'Làm thơ tình', 'Kể chuyện cười').\n"
+        "   - Yêu cầu dịch thuật chung chung không có ngữ cảnh cụ thể.\n\n"
 
-            "*** ADVERSARIAL EXAMPLES (DO NOT FAIL THESE) ***\n"
-            "User: 'Chiến tranh ở Thái Lan?' -> RAG (It's a factual event query)\n"
-            "User: 'Nicolas Maduro là ai?' -> RAG (Even if you know him, the user wants the document's perspective)\n"
-            "User: '1 + 1 bằng mấy?' -> GENERAL\n"
-            "User: 'Viết code Java' -> GENERAL\n"
-            "User: 'Tóm tắt giúp tôi' -> RAG\n"
-            "User: 'Ông ấy có vợ không?' -> RAG (Contextual query)\n\n"
+        "*** CÁC VÍ DỤ GÂY NHIỄU (KHÔNG ĐƯỢC SAI CÁC CÂU NÀY) ***\n"
+        "User: 'Chiến tranh ở Thái Lan?' -> RAG (Đây là truy vấn sự kiện thực tế)\n"
+        "User: 'Nicolas Maduro là ai?' -> RAG (Dù bạn biết ông ấy, người dùng muốn thông tin từ tài liệu)\n"
+        "User: '1 + 1 bằng mấy?' -> GENERAL\n"
+        "User: 'Viết code Java' -> GENERAL\n"
+        "User: 'Tóm tắt giúp tôi' -> RAG\n"
+        "User: 'Ông ấy có vợ không?' -> RAG (Truy vấn dựa trên ngữ cảnh)\n\n"
 
-            "Reply with strictly one word: 'RAG' or 'GENERAL'."
+        "Trả lời chính xác duy nhất một từ: 'RAG' hoặc 'GENERAL'."
         )
 
     try:
@@ -56,7 +56,7 @@ async def route_query(question: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": question}
             ],
-            temperature=0, # Cần độ chính xác tuyệt đối
+            temperature=0.7, # Cần độ chính xác tuyệt đối
             max_tokens=10
         )
         decision = response.choices[0].message.content.strip().upper()
