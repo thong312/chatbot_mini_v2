@@ -211,40 +211,81 @@ function updateMessageBadge(msgId, mode) {
         badge.className += " bg-blue-100 text-blue-700 border-blue-200";
     }
 }
-// --- [MỚI] TÁCH HÀM RENDER CONTEXT RA RIÊNG ĐỂ DỄ DÙNG LẠI ---
+
+
+// --- [FIX] HIỂN THỊ NGUỒN (DEBUG & FALLBACK) ---
 function renderContextHTML(context) {
+    // 1. Debug: In ra console để xem Backend trả về cái gì
+    console.log("🔍 Context Data received:", context);
+
     if (!context || context.length === 0) return "";
-    return `
-        <div class="mt-3 border-t border-gray-200 pt-3 text-left">
-            <details class="group">
-                <summary class="list-none cursor-pointer flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">
-                    <span class="transform group-open:rotate-90 transition-transform duration-200">▶</span>
-                    <span>📚 Nguồn tham khảo (${context.length} đoạn)</span>
-                </summary>
-                <div class="mt-3 grid gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                    ${context.map(ctx => `
-                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all text-xs text-gray-700 relative group/item">
-                            <div class="flex justify-between items-center mb-2 border-b border-gray-100 pb-2">
-                                <span class="font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">#${ctx.chunk_id || 'ID'}</span>
-                                <div class="flex gap-2 items-center">
-                                    <span class="text-[10px] uppercase tracking-wider text-gray-400 font-bold border border-gray-200 px-1 rounded">${ctx.metadata?.level || 'Std'}</span>
-                                    <span class="${ctx.rerank_score > 2 ? 'text-green-600 bg-green-50' : 'text-orange-500 bg-orange-50'} font-mono font-bold px-1 rounded">
-                                        ${ctx.rerank_score ? ctx.rerank_score.toFixed(2) : 'N/A'}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <div class="line-clamp-3 group-hover/item:line-clamp-none transition-all duration-300 text-justify leading-relaxed opacity-80 group-hover/item:opacity-100">
-                                    ${ctx.text}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
+
+    const uniqueFiles = new Set();
+
+    context.forEach(ctx => {
+        // 2. Lấy metadata an toàn
+        const meta = ctx.metadata || {};
+
+        // 3. Thử tìm tên file ở nhiều trường khác nhau (đề phòng backend lưu lệch key)
+        // Ưu tiên: source > filename > file_name > title
+        let filename = meta.source || meta.filename || meta.file_name || meta.title;
+
+        // Nếu vẫn không có tên, thử lấy ID hoặc báo Unknown
+        if (!filename) {
+            console.warn("⚠️ Chunk này không có tên file trong metadata:", ctx);
+            filename = "Tài liệu không tên";
+        }
+
+        uniqueFiles.add(filename);
+    });
+
+    if (uniqueFiles.size === 0) return "";
+
+    // 4. Render HTML
+    const fileListHTML = Array.from(uniqueFiles).map(filename => {
+        // Xử lý tên file để tránh lỗi khi truyền vào hàm onclick (ví dụ có dấu nháy đơn)
+        const safeFilename = filename.replace(/'/g, "\\'");
+
+        return `
+            <div 
+                class="flex items-center gap-3 p-3 mt-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:shadow-md hover:border-blue-400 transition-all group"
+                onclick="viewDocument('${safeFilename}')"
+            >
+                <div class="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
                 </div>
-            </details>
+
+                <div class="flex-1 overflow-hidden">
+                    <div class="text-sm font-medium text-blue-700 truncate group-hover:underline" title="${filename}">
+                        ${filename}
+                    </div>
+                    <div class="text-[10px] text-gray-400">Bấm để xem tài liệu gốc</div>
+                </div>
+
+                <div class="text-gray-300 group-hover:text-blue-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="mt-4 pt-3 border-t border-gray-100">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">📚 Nguồn tham khảo</span>
+                <span class="bg-gray-100 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">${uniqueFiles.size}</span>
+            </div>
+            <div class="flex flex-col">
+                ${fileListHTML}
+            </div>
         </div>
     `;
 }
+
 
 // 3. Hàm Appned Message (Đã tối ưu để hỗ trợ tách context)
 function appendMessage(text, role, isLoading = false, context = []) {

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def route_query(question: str) -> str:
     """
     Phân loại câu hỏi:
-    - Trả về 'RAG': Nếu cần tra cứu tài liệu, thông tin cụ thể, hoặc ngữ cảnh đã có.
+    - Trả về 'RAG': Nếu cần tra cứu tài liệu, thông tin cụ thể, hoặc ngữ cảnh đã có hoặc đã upload trước đó.
     - Trả về 'GENERAL': Nếu là chào hỏi, coding, kiến thức phổ quát (thủ đô nước Pháp, cách nấu phở...).
     """
     system_prompt = (

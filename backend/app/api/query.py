@@ -35,58 +35,89 @@ async def ask(req: AskRequest):
     # (Nếu db trả về rỗng thì list này rỗng, không sao cả)
     history_objs = [Message(**msg) for msg in db_history_dicts]
 
-    mode = await route_query(req.question)
-    print(f"🔄 Router Decision: {mode}") # Log ra xem nó chọn gì
+    initial_mode = await route_query(req.question)
+    print(f"🎯 Router Initial: {initial_mode}")
+    
 
     async def response_generator():
-        # A. Gửi Session ID & MODE về Client
-        # Client sẽ dùng cái "mode" này để hiển thị icon khác nhau
-        yield json.dumps({
-            "type": "meta_info", # Gộp chung info
-            "session_id": session_id,
-            "mode": mode 
-        }, ensure_ascii=False) + "\n"
-
-        # B. Lưu câu hỏi User
-        await add_message_to_history(session_id, "user", req.question)
-
-        full_answer = ""
-
-        # --- NHÁNH 1: RAG MODE (Tìm trong PDF) ---
-        if mode == "RAG":
+        final_mode = initial_mode
+        unique_hits = []
+        
+        # --- BƯỚC QUAN TRỌNG: RAG FALLBACK LOGIC ---
+        if initial_mode == "RAG":
+            # A. Thử tìm kiếm trong Vector DB
             unique_hits = await global_rag_pipeline.run(
                 original_question=req.question,
                 topk=req.topk,
                 rerank_topn=req.rerank_topn
             )
+
+            # B. Kiểm tra chất lượng kết quả (Fallback)
+            # Ngưỡng (Threshold): Với BGE-Reranker, điểm < -2 thường là không liên quan
+            # Bạn có thể chỉnh số -2.0 này tùy theo thực tế (VD: -1.0, 0.0)
+            SCORE_THRESHOLD = -2.0 
             
-            # Gửi context nếu có
-            if unique_hits:
-                context_data = [
-                    {
-                        "chunk_id": h["chunk_id"], 
-                        "text": h["text"], 
-                        "rerank_score": h.get("rerank_score", 0),
-                        "metadata": h.get("metadata")
-                    } for h in unique_hits
-                ]
-                yield json.dumps({"type": "context", "payload": context_data}, ensure_ascii=False) + "\n"
+            is_bad_result = False
             
-            # Gọi LLM RAG
+            if not unique_hits:
+                print("⚠️ RAG rỗng: Không tìm thấy tài liệu nào.")
+                is_bad_result = True
+            elif unique_hits[0]['rerank_score'] < SCORE_THRESHOLD:
+                print(f"⚠️ RAG kém: Điểm cao nhất chỉ là {unique_hits[0]['rerank_score']} (Dưới ngưỡng {SCORE_THRESHOLD})")
+                is_bad_result = True
+            
+            # C. Nếu kết quả tệ -> Chuyển sang GENERAL
+            if is_bad_result:
+                final_mode = "GENERAL"
+                unique_hits = [] # Xóa kết quả rác để không làm nhiễu LLM
+
+        # 3. Gửi thông tin Mode về cho Client (để hiện màu Badge)
+        yield json.dumps({
+            "type": "meta_info", 
+            "session_id": session_id,
+            "mode": final_mode # Client sẽ hiển thị General (Tím) hoặc RAG (Xanh) dựa vào cái này
+        }, ensure_ascii=False) + "\n"
+
+        # 4. Lưu câu hỏi User
+        await add_message_to_history(session_id, "user", req.question)
+
+        full_answer = ""
+
+        # --- NHÁNH XỬ LÝ ---
+        
+        # TRƯỜNG HỢP 1: RAG xịn (Có tài liệu ngon)
+        if final_mode == "RAG" and unique_hits:
+            # Gửi Context
+            context_data = [
+                {
+                    "chunk_id": h["chunk_id"], "text": h["text"], 
+                    "rerank_score": h.get("rerank_score", 0), "metadata": h.get("metadata")
+                } for h in unique_hits
+            ]
+            yield json.dumps({"type": "context", "payload": context_data}, ensure_ascii=False) + "\n"
+            
+            # Gọi LLM trả lời dựa trên tài liệu
             async for token in call_llm(req.question, unique_hits, history_objs):
                 if token:
                     full_answer += token
                     yield json.dumps({"type": "answer", "payload": token}, ensure_ascii=False) + "\n"
 
-        # --- NHÁNH 2: GENERAL MODE (Chat thường) ---
+        # TRƯỜNG HỢP 2: GENERAL (Hoặc RAG bị Fail chuyển sang)
         else:
-            # Gọi LLM General (Không cần context hits)
+            # Có thể thêm một câu thông báo nhỏ nếu bị fallback
+            if initial_mode == "RAG": 
+                # Nếu ban đầu định tìm kiếm mà không thấy, báo nhẹ 1 câu (tùy chọn)
+                msg = "*(Không tìm thấy thông tin trong tài liệu, tôi sẽ trả lời bằng kiến thức tổng quát...)*\n\n"
+                full_answer += msg
+                yield json.dumps({"type": "answer", "payload": msg}, ensure_ascii=False) + "\n"
+
+            # Gọi LLM chém gió (Sử dụng kiến thức training của nó)
             async for token in call_llm_general(req.question, history_objs):
                 if token:
                     full_answer += token
                     yield json.dumps({"type": "answer", "payload": token}, ensure_ascii=False) + "\n"
-        
-        # C. Lưu câu trả lời Assistant
+
+        # 5. Lưu câu trả lời
         if full_answer:
             await add_message_to_history(session_id, "assistant", full_answer)
 

@@ -1,6 +1,5 @@
-from http.client import HTTPException
 from typing import List
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.core.settings import settings
 from app.schemas.document import IngestResponse
 from app.services.pdf_ingest import sha256_bytes, extract_pages
@@ -26,32 +25,32 @@ async def ingest_pdf(file: UploadFile = File(...)):
     doc_hash = sha256_bytes(pdf_bytes)
     document_id = doc_hash[:12]
 
+    # --- [SỬA 1] LƯU MINIO BẰNG TÊN FILE GỐC ---
+    # Để khi Frontend gọi /view/ten_file.pdf thì MinIO mới tìm thấy.
+    # (Code cũ dùng document_id.pdf khiến frontend bị lỗi 404 khi bấm xem)
+    minio_filename = file.filename 
+
     try:
-        minio_filename = f"{document_id}.pdf"
         upload_pdf_to_minio(
             file_bytes=pdf_bytes, 
             file_name=minio_filename
         )
-        print(f"Đã lưu file gốc vào MinIO: {minio_filename}")
+        print(f"✅ Đã lưu file vào MinIO: {minio_filename}")
         
     except Exception as e:
         print(f"❌ Lỗi MinIO: {e}")
 
+    # Xử lý Chunking
     pages = extract_pages(pdf_bytes)
-    
-    # 1. SỬA chunking call
     chunks = chunk_hierarchical(
-            pages=pages,
-            tokenizer_model=settings.embed_model,
-            coarse_target_tokens=512, # Kích thước Parent
-            coarse_overlap_tokens=200, # Overlap Parent
-            chunk_size=128,            # Kích thước Child
-            overlap_sentences=2,
-            
-            # --- QUAN TRỌNG: PHẢI LÀ "BOTH" ---
-            # Để lưu cả Cha (để đọc) và Con (để tìm kiếm) vào DB
-            return_level="both", 
-        )
+        pages=pages,
+        tokenizer_model=settings.embed_model,
+        coarse_target_tokens=512,
+        coarse_overlap_tokens=200,
+        chunk_size=128,
+        overlap_sentences=2,
+        return_level="both", 
+    )
 
     texts = [c["text"] for c in chunks]
     vecs = embedder.encode(texts)
@@ -65,17 +64,25 @@ async def ingest_pdf(file: UploadFile = File(...)):
             "page_end": c["page_end"],
             "text": c["text"],
             "embedding": v,
+            "level": c.get("level", "standard"),
+            "parent_id": c.get("parent_id") or "",
             
-            # --- 2. BỔ SUNG MAP DỮ LIỆU MỚI ---
-            # Lấy thông tin từ kết quả chunker để gửi vào DB
-            "level": c.get("level", "standard"),      
-            "parent_id": c.get("parent_id") or "",    # Nếu không có (là chunk cha) thì để rỗng
+            # --- [SỬA 2] THÊM METADATA ---
+            # Đây là phần quan trọng để Frontend hiển thị được tên file
+            "metadata": {
+                "source": file.filename,  # <--- Tên file hiển thị
+                "page": c["page_start"],  # Số trang
+                "total_pages": len(pages)
+            }
         })
 
     insert_chunks(collection, rows)
+    
+    # Reload lại BM25 Search
     print("⚡ Triggering BM25 Update...")
     current_docs = get_all_documents(collection)
     global_rag_pipeline.reload_bm25(current_docs)
+    
     return IngestResponse(document_id=document_id, chunks_inserted=len(rows), filename=file.filename)
 
 @router.get("", response_model=List[dict])
