@@ -20,7 +20,9 @@ body {
 /* Sidebar */
 .sidebar {
     width: 280px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* CŨ: background: linear-gradient(135deg, #696969 0%, #764ba2 100%); */
+    /* MỚI: Xám tro tối */
+    background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
     color: white;
     padding: 20px;
     display: flex;
@@ -145,12 +147,12 @@ body {
     display: flex;
     gap: 8px;
 }
-
 .upload-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* MỚI */
+    background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
     color: white;
     border: none;
     padding: 10px 16px;
@@ -159,13 +161,16 @@ body {
     font-weight: 600;
     font-size: 14px;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    /* MỚI: Đổi bóng đổ sang màu xám/đen */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); 
 }
 
 .upload-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    /* MỚI */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
+
 
 #pdf-file {
     display: none;
@@ -186,7 +191,9 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    background: #fafafa;
+    /* CŨ: background: #fafafa; */
+    /* MỚI: Xám nhạt dịu mắt */
+    background: #e5e7eb; 
 }
 
 .message {
@@ -214,7 +221,8 @@ body {
 }
 
 .message-user .message-content {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* MỚI */
+    background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
     color: white;
     border-radius: 12px 12px 4px 12px;
 }
@@ -225,9 +233,12 @@ body {
 }
 
 .message-ai .message-content {
-    background: white;
+    /* CŨ: background: white; */
+    /* MỚI: Màu trắng khói */
+    background: #f9fafb; 
     color: #333;
-    border: 1px solid #e5e5e5;
+    /* Viền đậm hơn 1 chút cho rõ */
+    border: 1px solid #d1d5db; 
     border-radius: 12px 12px 12px 4px;
 }
 
@@ -236,33 +247,69 @@ body {
     word-wrap: break-word;
     line-height: 1.5;
     font-size: 14px;
+    margin-right:100px;
 }
 
-/* Input Area */
+/* --- Floating Input Style V2 (Đẹp & Gọn hơn) --- */
+
 .input-area {
-    padding: 20px 24px;
-    background: white;
-    border-top: 1px solid #e5e5e5;
+    /* Nền trong suốt để lộ background xám phía sau */
+    background: transparent;
+    border-top: none; 
+    
+    /* Khoảng cách để nó "bay" lên khỏi đáy màn hình */
+    padding: 0 20px 40px 20px; 
+    
     display: flex;
-    gap: 12px;
+    justify-content: center; /* Căn giữa màn hình */
+    width: 100%;
+    
+    /* Đảm bảo nó nằm đè lên trên nội dung chat nếu chat dài */
+    position: relative; 
+    z-index: 10;
+    background: #e5e7eb;
 }
 
 .input-wrapper {
     flex: 1;
+    
+    /* QUAN TRỌNG: Giới hạn chiều rộng để nhìn nó gọn (như hình mẫu) */
+    max-width: 680px; 
+    min-width: 300px;
+    
     display: flex;
-    gap: 8px;
+    gap: 12px;
     align-items: center;
-    background: #f5f5f5;
-    border: 1px solid #e5e5e5;
-    border-radius: 24px;
-    padding: 12px 16px;
-    transition: all 0.2s ease;
+    
+    /* Màu nền trắng nổi bật trên nền xám */
+    background: #ffffff; 
+    
+    /* Viền rất mỏng */
+    border: 1px solid rgba(0,0,0,0.08);
+    
+    /* Bo tròn hoàn hảo */
+    border-radius: 50px; 
+    
+    /* Padding cân đối */
+    padding: 8px 8px 8px 24px; 
+    
+    /* ĐỔ BÓNG CAO CẤP (Soft Shadow) */
+    /* Tạo cảm giác nó đang bay thật sự */
+    box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.05),
+        0 10px 15px -3px rgba(0, 0, 0, 0.05),
+        0 20px 35px -5px rgba(0, 0, 0, 0.05); /* Bóng lan rộng mờ ảo */
+    
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Hiệu ứng khi bấm vào: Nổi cao hơn chút nữa */
 .input-wrapper:focus-within {
-    background: white;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 
+        0 10px 20px -5px rgba(0, 0, 0, 0.1),
+        0 25px 40px -10px rgba(0, 0, 0, 0.1);
+    border-color: #d1d5db;
 }
 
 #user-input {
@@ -270,30 +317,50 @@ body {
     border: none;
     background: none;
     outline: none;
-    font-size: 14px;
-    font-family: inherit;
+    font-size: 15px;
+    color: #1f2937; /* Màu chữ đậm cho dễ đọc */
+    padding: 4px 0;
 }
 
 #user-input::placeholder {
-    color: #999;
+    color: #9ca3af;
+    font-weight: 400;
 }
 
+/* Nút gửi: Chỉnh lại cho nằm gọn gàng bên phải */
 .send-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Màu Gradient Xám Tro (đồng bộ theme) */
+    background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 20px;
+    
+    /* Hình tròn hoàn hảo */
+    width: 42px; 
+    height: 42px;
+    border-radius: 50%;
+    
+    /* Flex để căn icon vào giữa */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
     cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    
+    /* Bóng nhẹ cho nút */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 .send-btn:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #374151 0%, #111827 100%);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.send-btn svg {
+    width: 20px;
+    height: 20px;
+    /* Đẩy icon sang phải 1 xíu cho cân mắt (do*/
 }
 
 /* Modal */
@@ -375,7 +442,7 @@ body {
 }
 
 .file-icon {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #696969 0%, #764ba2 100%);
     color: white;
     width: 40px;
     height: 40px;
@@ -436,14 +503,17 @@ body {
 }
 
 .modal-btn-confirm {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* MỚI */
+    background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
     color: white;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    /* MỚI */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .modal-btn-confirm:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    /* MỚI */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Scrollbar */
