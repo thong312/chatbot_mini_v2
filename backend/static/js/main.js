@@ -17,23 +17,49 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSettings) btnSettings.addEventListener('click', () => alert("Tính năng đang phát triển"));
 
 
-    // --- 2. SỰ KIỆN CHAT ---
+// --- KHAI BÁO BIẾN ---
     const sendBtn = document.getElementById('send-btn');
     const userInput = document.getElementById('user-input');
 
+    // --- HÀM XỬ LÝ GỬI TIN NHẮN (Dùng chung) ---
+    const handleSendMessage = () => {
+        // 1. Lấy nội dung và cắt khoảng trắng thừa
+        const text = userInput.value.trim();
+        
+        // 2. Nếu rỗng thì không làm gì cả
+        if (!text) return;
+
+        // 3. Xóa ô nhập liệu ngay lập tức (để UI phản hồi nhanh)
+        userInput.value = '';
+
+        // 4. Gọi hàm gửi tin nhắn của bạn (hàm này gọi API xuống server)
+        sendMessage(text);
+
+        // 5. QUAN TRỌNG: Chỉnh lại chiều cao ô input về mặc định (nếu bạn dùng textarea)
+        userInput.style.height = 'auto'; 
+
+        // 6. QUAN TRỌNG: Focus lại vào ô nhập để gõ tiếp luôn
+        userInput.focus();
+    };
+
+    // --- GẮN SỰ KIỆN ---
     if (sendBtn && userInput) {
-        sendBtn.addEventListener('click', () => {
-            const text = userInput.value.trim();
-            if (!text) return;
-            userInput.value = '';
-            sendMessage(text);
+        
+        // 1. Sự kiện Click vào nút mũi tên
+        sendBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Chặn reload trang nếu nút nằm trong form
+            handleSendMessage();
         });
 
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendBtn.click();
+        // 2. Sự kiện nhấn phím trên bàn phím
+        userInput.addEventListener('keydown', (e) => {
+            // Nếu nhấn Enter (mà không giữ Shift)
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // Chặn xuống dòng
+                handleSendMessage(); // Gửi luôn
+            }
         });
     }
-
 
     // --- 3. SỰ KIỆN UPLOAD FILE (QUAN TRỌNG) ---
     const fileInput = document.getElementById('pdf-file');
