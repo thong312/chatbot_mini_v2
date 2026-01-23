@@ -16,16 +16,16 @@ graph TD
         PDF[PDF File] --> Parse[PyMuPDF Parser]
         Parse --> Clean[Text Cleaning]
         Clean --> Chunk[Hierarchical Chunking]
-        Chunk --> Embed[Local Embedding (BGE-M3)]
-        Chunk --> MinIO[(MinIO Storage)]
-        Embed --> Neo4j[(Neo4j Vector/Graph DB)]
+        Chunk --> Embed["Local Embedding (BGE-M3)"]
+        Chunk --> MinIO[("MinIO Storage")]
+        Embed --> Neo4j[("Neo4j Vector/Graph DB")]
     end
 
     subgraph "Retrieval Pipeline"
         QueryProc --> Expansion[Query Expansion]
         Expansion --> Hybrid[Hybrid Search]
-        Hybrid --> Vector[Vector Search (Neo4j)]
-        Hybrid --> Keyword[Keyword Search (BM25)]
+        Hybrid --> Vector["Vector Search (Neo4j)"]
+        Hybrid --> Keyword["Keyword Search (BM25)"]
         Vector & Keyword --> Candidates[Raw Candidates]
         Candidates --> Rerank[Cross-Encoder Reranker]
         Rerank --> Context[Top Contexts]
