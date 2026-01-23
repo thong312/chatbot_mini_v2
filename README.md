@@ -12,6 +12,18 @@ A Retrieval-Augmented Generation (RAG) system for querying PDF documents. This p
 - **Chat History**: Persistent session management using Neo4j graph relationships.
 - **Modular UI**: Modern, responsive frontend built with ES Modules and Tailwind CSS.
 
+## System Architecture
+
+The system employs a sophisticated RAG pipeline designed for accuracy and context awareness.
+
+1.  **Ingestion**: PDFs are parsed and split into **Hierarchical Chunks** (Parent/Child) to preserve context.
+2.  **Storage**: Chunks are embedded locally (`bge-m3`) and stored in **Neo4j** (Vector + Graph). Raw files go to **MinIO**.
+3.  **Routing**: An LLM Router classifies queries as "RAG" (search needed) or "GENERAL" (chat only).
+4.  **Retrieval**: Uses **Hybrid Search** (Vector + BM25) followed by **Cross-Encoder Reranking**.
+5.  **Generation**: Top results are fed to a Groq LLM to generate the final answer.
+
+👉 **[Read the Detailed System Guide](docs/DETAILED_GUIDE.md)** for a deep dive into the code and logic.
+
 ## Prerequisites
 - **Docker & Docker Compose**: For running Neo4j and MinIO.
 - **Python 3.10+**
