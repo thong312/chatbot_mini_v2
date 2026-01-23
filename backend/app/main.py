@@ -1,21 +1,3 @@
-# from fastapi import FastAPI
-# from app.api.documents import router as documents_router
-# from app.api.query import router as query_router
-# from app.core.settings import settings
-# from app.api.debug import router as debug_router
-
-
-# app = FastAPI(title="AI PDF RAG", version="0.1.0")
-
-# @app.get("/health")
-# def health():
-#     return {"status": "ok", "collection": settings.milvus_collection}
-
-# app.include_router(documents_router)
-# app.include_router(query_router)
-# app.include_router(debug_router)
-
-
 # main.py
 import phoenix as px
 from openinference.instrumentation.openai import OpenAIInstrumentor

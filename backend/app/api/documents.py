@@ -5,19 +5,19 @@ from app.schemas.document import IngestResponse
 from app.services.pdf_ingest import sha256_bytes, extract_pages
 from app.services.chucking.hierarchical_chunker import chunk_hierarchical
 from app.services.embedding import LocalEmbedder
-from app.services.milvus_store import ensure_collection, insert_chunks
+from app.services.neo4j_store import ensure_vector_index, insert_chunks, get_all_documents
 from app.services.minio_store import upload_pdf_to_minio, get_file_stream
 from app.services.minio_store import list_files_in_minio
 from fastapi.responses import StreamingResponse
 
-from app.core.global_state import global_rag_pipeline, collection 
-from app.services.milvus_store import get_all_documents
+from app.core.global_state import global_rag_pipeline
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 # init once
 embedder = LocalEmbedder(settings.embed_model)
-collection = ensure_collection(dim=embedder.dim)
+# Ensure vector index exists in Neo4j
+ensure_vector_index(dim=embedder.dim)
 
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest_pdf(file: UploadFile = File(...)):
@@ -76,11 +76,11 @@ async def ingest_pdf(file: UploadFile = File(...)):
             }
         })
 
-    insert_chunks(collection, rows)
+    insert_chunks(rows)
     
     # Reload lại BM25 Search
     print("⚡ Triggering BM25 Update...")
-    current_docs = get_all_documents(collection)
+    current_docs = get_all_documents()
     global_rag_pipeline.reload_bm25(current_docs)
     
     return IngestResponse(document_id=document_id, chunks_inserted=len(rows), filename=file.filename)

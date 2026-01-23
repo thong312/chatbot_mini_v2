@@ -1,7 +1,7 @@
 [project]
 name = "ai-pdf-rag"
 version = "0.1.0"
-description = "PDF RAG with local embedding & rerank, Milvus, external LLM"
+description = "PDF RAG with local embedding & rerank, Neo4j, external LLM"
 requires-python = ">=3.10"
 
 dependencies = [
@@ -13,8 +13,8 @@ dependencies = [
   "httpx>=0.27",
   # PDF parsing
   "pymupdf>=1.23",
-  # Vector DB
-  "pymilvus>=2.4",
+  # Vector DB & Graph
+  "neo4j>=5.15.0",
   # Tokenizer / NLP
   "transformers>=4.39",
   "sentencepiece",
@@ -24,7 +24,6 @@ dependencies = [
   "tqdm",
   "openai>=2.15.0",
   "rank-bm25>=0.2.2",
-  "motor>=3.7.1",
   "arize-phoenix>=12.29.0",
   "openinference-instrumentation-openai>=0.1.41",
   "opentelemetry-sdk>=1.39.1",

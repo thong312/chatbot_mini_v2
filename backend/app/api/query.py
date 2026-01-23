@@ -5,7 +5,7 @@ from app.schemas.query import AskRequest, Message
 # Import Pipeline toàn cục (để dùng chung RAM với bên upload)
 from app.core.global_state import global_rag_pipeline
 from app.services.llm_client import call_llm, call_llm_general
-# Import service Chat History (MongoDB)
+# Import service Chat History (Neo4j)
 from app.services.chat_history import get_chat_history, add_message_to_history
 import uuid
 
@@ -21,17 +21,17 @@ router = APIRouter(prefix="", tags=["query"])
 async def ask(req: AskRequest):
     """
     API trả lời câu hỏi:
-    1. Lấy lịch sử từ MongoDB dựa trên session_id
+    1. Lấy lịch sử từ Neo4j dựa trên session_id
     2. Retrieval (RAG)
     3. Generation (LLM) + Streaming
-    4. Lưu lại hội thoại mới vào MongoDB
+    4. Lưu lại hội thoại mới vào Neo4j
     """
     session_id = req.session_id if req.session_id else str(uuid.uuid4())
     # --- BƯỚC 1: CHUẨN BỊ DỮ LIỆU (Lấy History từ DB) ---
     # Thay vì tin vào req.history (client gửi), ta lấy từ Database cho chuẩn
     db_history_dicts = await get_chat_history(session_id)
 
-    # Convert từ dict của Mongo sang object Message để call_llm hiểu
+    # Convert từ dict của Neo4j sang object Message để call_llm hiểu
     # (Nếu db trả về rỗng thì list này rỗng, không sao cả)
     history_objs = [Message(**msg) for msg in db_history_dicts]
 

@@ -1,10 +1,11 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    # ===== Vector DB =====
-    milvus_host: str = "localhost"
-    milvus_port: int = 19530
-    milvus_collection: str = "war_chunks"
+    # ===== Neo4j =====
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "password"
+    neo4j_database: str = "neo4j" # Default database
 
     # ===== LLM (Groq - OpenAI compatible) =====
     llm_base_url: str = "https://api.groq.com/openai/v1"

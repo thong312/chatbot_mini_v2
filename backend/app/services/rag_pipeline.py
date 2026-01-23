@@ -2,14 +2,13 @@ import asyncio
 from typing import List, Dict
 from rank_bm25 import BM25Okapi
 from app.services.embedding import LocalEmbedder
-from app.services.milvus_store import search
+from app.services.neo4j_store import search
 from app.services.rerank import LocalReranker
 from app.services.llm_client import openai_client # Giả sử bạn đã export client từ đây
 from app.core.settings import settings
 
 class RAGPipeline:
-    def __init__(self, collection, embedder: LocalEmbedder, reranker: LocalReranker, all_docs_for_bm25: List[Dict] = None):
-        self.collection = collection
+    def __init__(self, embedder: LocalEmbedder, reranker: LocalReranker, all_docs_for_bm25: List[Dict] = None):
         self.embedder = embedder
         self.reranker = reranker
         
@@ -52,7 +51,7 @@ class RAGPipeline:
 
         # A. Semantic Search (Vector)
         qvec = self.embedder.encode([query])[0]
-        vector_hits = search(self.collection, qvec, topk=topk)
+        vector_hits = search(qvec, topk=topk)
         for h in vector_hits:
             if "metadata" not in h or h["metadata"] is None:
                 h["metadata"] = {}
